@@ -3,32 +3,9 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
 
-# === USER MODEL ===
-# This represents users who log into the system
-
-class User(Base):
-   
-    __tablename__ = "users"  # SQLite table name
-    
-    # Primary key - unique ID for each user
-    id = Column(Integer, primary_key=True, index=True)
-    
-    # Login credentials
-    username = Column(String(50), unique=True, index=True, nullable=False)
-    email = Column(String(100), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)  # Never store plain passwords!
-    
-    # Optional user details
-    is_active = Column(Boolean, default=True)  # Can disable users without deleting
-    
-    # Auto-managed timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
-    # Relationship: One user can have many transactions
-    # This creates a connection between User and Transaction tables
-    transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
-
+# === DISTRIBUTED SOFTWARE MODEL ===
+# Each user has their own SQLite database file
+# No user authentication needed - each installation is personal
 
 # === CATEGORY MODEL ===
 # This represents spending categories (Food, Transport, etc.)
@@ -66,9 +43,9 @@ class Transaction(Base):
     amount = Column(Float, nullable=False)  # -4.50 (negative=expense, positive=income)
     date = Column(DateTime, nullable=False, index=True)  # When it happened
     
-    # Links to other tables (foreign keys)
+    # Links to category (foreign key)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)  # Can be uncategorized
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Must belong to someone
+    # NOTE: No user_id needed in distributed mode - each user has their own database
     
     # CSV upload tracking (for audit trail)
     source_file = Column(String(255), nullable=True)  # "chase_statement_jan2024.csv"
@@ -79,7 +56,7 @@ class Transaction(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships - SQLAlchemy will automatically handle JOINs
-    user = relationship("User", back_populates="transactions")
+    # NOTE: No user relationship needed in distributed mode
     category = relationship("Category", back_populates="transactions")
     
     # === HELPER PROPERTIES ===
