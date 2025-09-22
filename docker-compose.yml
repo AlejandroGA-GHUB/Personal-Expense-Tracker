@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: finance-tracker-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - finance-network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: finance-tracker-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+      - finance-network
+    command: npm run dev
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finance-tracker-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=sqlite:///./finance_tracker.db
+    networks:
+      - finance-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Database (Optional - SQLite is file-based)
+  # Uncomment if you want to use PostgreSQL instead
+  # database:
+  #   image: postgres:13
+  #   container_name: finance-tracker-db
+  #   environment:
+  #     POSTGRES_DB: finance_tracker
+  #     POSTGRES_USER: finance_user
+  #     POSTGRES_PASSWORD: finance_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - finance-network
+
+networks:
+  finance-network:
+    driver: bridge
+
+# Uncomment if using PostgreSQL
+# volumes:
+#   postgres_data:

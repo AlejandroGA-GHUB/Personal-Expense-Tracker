@@ -1,0 +1,80 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background-color: #f8f9fa;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 2rem;
+}
+
+.app-header h1 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  text-align: center;
+}
+
+.app-nav {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.app-nav button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ccc;
+  background-color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.app-nav button:hover {
+  background-color: #f0f0f0;
+}
+
+.app-nav button.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.app-main {
+  flex: 1;
+  padding: 0 1rem;
+}
+
+.dashboard-placeholder {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+}
+
+.dashboard-placeholder h2 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 1rem;
+  }
+  
+  .app-nav {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .app-nav button {
+    width: 200px;
+  }
+}
