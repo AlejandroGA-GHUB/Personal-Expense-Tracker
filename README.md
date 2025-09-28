@@ -32,15 +32,15 @@ Tier 3: Database & Data Persistence
 │ 1. CSV UPLOAD   │    │ 2. VIEW CHARTS  │    │ 3. MANAGE DATA  │    │ 4. GENERATE     │
 │     FLOW        │    │      FLOW       │    │     FLOW        │    │   REPORTS       │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │                       │
-         ▼                       ▼                       ▼                       ▼
+         │                       │                    │                       │
+         ▼                       ▼                    ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │ User selects    │    │ User opens      │    │ User wants to   │    │ User selects    │
 │ CSV file        │    │ Dashboard/      │    │ edit/add        │    │ report type &   │
 │                 │    │ Charts page     │    │ transaction     │    │ time period     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │                       │
-         ▼                       ▼                       ▼                       ▼
+         │                       │                    │                       │
+         ▼                       ▼                    ▼                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                             TIER 1: PRESENTATION LAYER                                  │
 │                                (React - Port 3000)                                      │
