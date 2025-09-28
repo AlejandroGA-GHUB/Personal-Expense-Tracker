@@ -110,6 +110,7 @@ Bank Data → Transaction Parser → Local Database → Interactive Charts
 ## 📁 Project Structure
 
 ```
+```
 personal-finance-tracker/
 ├── 🖥️ backend/                 # FastAPI Server (Port 8000)
 │   ├── app/
@@ -154,6 +155,7 @@ personal-finance-tracker/
 └── 💾 finance.db               # Your personal SQLite database
 ```
 
+```
 ## 🛠️ 3-Tier Tech Stack
 
 ### Tier 1: Presentation Layer (React - Port 3000)
@@ -178,6 +180,7 @@ personal-finance-tracker/
 ## 📊 API Endpoints
 
 ### Charts & Analytics
+```
 ```
 GET  /charts/spending-by-category    # Pie chart data
 GET  /charts/monthly-summary         # Monthly spending trends
