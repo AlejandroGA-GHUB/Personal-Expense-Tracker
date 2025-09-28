@@ -50,8 +50,8 @@ Tier 3: Database & Data Persistence
 │ - Progress bar  │ - Data fetch      │ - Validation      │ - Export options              │
 │ - Validation    │ - Auto-refresh    │ - Category select │ - Filter controls             │
 └─────────────────┴───────────────────┴───────────────────┴───────────────────────────────┘
-         │                       │                       │                       │
-         ▼ HTTP POST             ▼ HTTP GET              ▼ HTTP CRUD             ▼ HTTP GET
+         │                   │                │                          │
+         ▼ HTTP POST         ▼ HTTP GET       ▼ HTTP CRUD                ▼ HTTP GET
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                             TIER 2: BUSINESS LOGIC LAYER                                │
 │                                (FastAPI - Port 8000)                                    │
@@ -62,8 +62,8 @@ Tier 3: Database & Data Persistence
 │ - Auto-category │ - Format for UI   │ - Business rules  │ - Period calculations         │
 │ - Bulk insert   │ - Cache results   │ - Error handling  │ - Export formatting           │
 └─────────────────┴───────────────────┴───────────────────┴───────────────────────────────┘
-         │                       │                       │                       │
-         ▼ ORM Bulk Operations   ▼ ORM Aggregate Queries ▼ ORM CRUD Operations   ▼ ORM Complex Queries
+     │                      │                       │                       │
+     ▼ ORM Bulk Operations  ▼ ORM Aggregate Queries ▼ ORM CRUD Operations   ▼ ORM Complex Queries
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                              TIER 3: DATA LAYER                                         │
 │                               (SQLite Database)                                         │
