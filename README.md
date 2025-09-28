@@ -82,7 +82,7 @@ Tier 3: Database & Data Persistence
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                            DATA FLOW PATTERNS                                          │
+│                            DATA FLOW PATTERNS                                           │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │ 🔄 Real-time: User action → API call → Database → Immediate UI update                  │
 │ 📊 Batch: CSV upload → Background processing → Bulk database operations → Summary      │  
