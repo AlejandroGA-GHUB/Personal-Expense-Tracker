@@ -78,7 +78,8 @@ Tier 3: Database & Data Persistence
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐  
 │ Data stored &   │    │ Chart data      │    │ Updated records │    │ Report data     │  
 │ auto-categorized│    │ returned to UI  │    │ reflected in UI │    │ formatted &     │  
-│                 │    │                 │    │                 │    │ ready for view  │  
+│ (Keywords and   |    |                 |    |                 |    | ready for view  |
+| AI)             │    │                 │    │                 │    |                 │  
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘  
                                                                                           
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
@@ -86,7 +87,7 @@ Tier 3: Database & Data Persistence
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │ Real-time: User action → API call → Database → Immediate UI update                      |             
 │ Batch: CSV upload → Background processing → Bulk database operations → Summary          |        
-│ Caching: Frequent chart requests cached in memory for performance                       |                 
+│ Caching(Redis): Frequent chart requests cached in memory for performance                |                 
 │ Search: Real-time filtering without database calls using client-side caching            |        
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 
