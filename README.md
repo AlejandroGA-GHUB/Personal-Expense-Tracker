@@ -5,16 +5,16 @@ A privacy-first, 3-tier personal finance tracker that runs entirely on your loca
 ## 🏗️ 3-Tier Architecture (Local Deployment)
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    USER'S COMPUTER (Local)                     │
-│                                                                 │
-│  ┌─────────────────┐    ┌─────────────────┐   ┌──────────────┐ │
-│  │ PRESENTATION    │    │ BUSINESS LOGIC  │   │     DATA     │ │
-│  │   React App     │◄──►│    FastAPI      │◄──►│   SQLite     │ │
-│  │   (Tier 1)      │    │    (Tier 2)     │   │   (Tier 3)   │ │
-│  │   Port: 3000    │    │   Port: 8000    │   │  Local File  │ │
-│  └─────────────────┘    └─────────────────┘   └──────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    USER'S COMPUTER (Local)                       │
+│                                                                  │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌──────────────┐  │
+│  │ PRESENTATION    │    │ BUSINESS LOGIC  │    │     DATA     │  │
+│  │   React App     │◄──►│    FastAPI      │◄──►│   SQLite     │  │
+│  │   (Tier 1)      │    │    (Tier 2)     │    │   (Tier 3)   │  │
+│  │   Port: 3000    │    │   Port: 8000    │    │  Local File  │  │
+│  └─────────────────┘    └─────────────────┘    └──────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
 
 Tier 1: Frontend UI & User Interaction
 Tier 2: API Logic & Business Rules  
@@ -25,7 +25,7 @@ Tier 3: Database & Data Persistence
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              USER INTERACTION FLOWS                                    │
+│                              USER INTERACTION FLOWS                                     │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -42,52 +42,52 @@ Tier 3: Database & Data Persistence
          │                       │                       │                       │
          ▼                       ▼                       ▼                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                             TIER 1: PRESENTATION LAYER                                 │
-│                                (React - Port 3000)                                     │
+│                             TIER 1: PRESENTATION LAYER                                  │
+│                                (React - Port 3000)                                      │
 ├─────────────────┬───────────────────┬───────────────────┬───────────────────────────────┤
 │ UploadForm.jsx  │ Charts.jsx        │ Transaction Forms │ Reports.jsx                   │
-│ - File picker   │ - Chart.js render │ - CRUD forms      │ - Date pickers               │
-│ - Progress bar  │ - Data fetch      │ - Validation      │ - Export options             │
-│ - Validation    │ - Auto-refresh    │ - Category select │ - Filter controls            │
+│ - File picker   │ - Chart.js render │ - CRUD forms      │ - Date pickers                │
+│ - Progress bar  │ - Data fetch      │ - Validation      │ - Export options              │
+│ - Validation    │ - Auto-refresh    │ - Category select │ - Filter controls             │
 └─────────────────┴───────────────────┴───────────────────┴───────────────────────────────┘
          │                       │                       │                       │
          ▼ HTTP POST             ▼ HTTP GET              ▼ HTTP CRUD             ▼ HTTP GET
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                             TIER 2: BUSINESS LOGIC LAYER                               │
-│                                (FastAPI - Port 8000)                                   │
+│                             TIER 2: BUSINESS LOGIC LAYER                                │
+│                                (FastAPI - Port 8000)                                    │
 ├─────────────────┬───────────────────┬───────────────────┬───────────────────────────────┤
 │ /upload         │ /charts/*         │ /transactions/*   │ /reports/*                    │
-│ - Parse CSV     │ - Aggregate data  │ - CRUD operations │ - Time-based queries         │
-│ - Validate data │ - Calculate totals│ - Data validation │ - Transaction filtering      │
-│ - Auto-category │ - Format for UI   │ - Business rules  │ - Period calculations        │
-│ - Bulk insert   │ - Cache results   │ - Error handling  │ - Export formatting          │
+│ - Parse CSV     │ - Aggregate data  │ - CRUD operations │ - Time-based queries          │
+│ - Validate data │ - Calculate totals│ - Data validation │ - Transaction filtering       │
+│ - Auto-category │ - Format for UI   │ - Business rules  │ - Period calculations         │
+│ - Bulk insert   │ - Cache results   │ - Error handling  │ - Export formatting           │
 └─────────────────┴───────────────────┴───────────────────┴───────────────────────────────┘
          │                       │                       │                       │
          ▼ ORM Bulk Operations   ▼ ORM Aggregate Queries ▼ ORM CRUD Operations   ▼ ORM Complex Queries
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              TIER 3: DATA LAYER                                        │
-│                               (SQLite Database)                                        │
+│                              TIER 3: DATA LAYER                                         │
+│                               (SQLite Database)                                         │
 ├─────────────────┬───────────────────┬───────────────────┬───────────────────────────────┤
 │ Bulk INSERT     │ SELECT with       │ INSERT/UPDATE/    │ Complex JOINs &               │
 │ transactions    │ GROUP BY, SUM     │ DELETE single     │ aggregate functions           │
 │ with categories │ ORDER BY date     │ records           │ DATE() functions              │
 │                 │ WHERE clauses     │                   │ Window functions              │
 └─────────────────┴───────────────────┴───────────────────┴───────────────────────────────┘
-         │                       │                       │                       │
-         ▼                       ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Data stored &   │    │ Chart data      │    │ Updated records │    │ Report data     │
-│ auto-categorized│    │ returned to UI  │    │ reflected in UI │    │ formatted &     │
-│                 │    │                 │    │                 │    │ ready for view  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
-
+         │                       │                       │                       │        
+         ▼                       ▼                       ▼                       ▼         
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐  
+│ Data stored &   │    │ Chart data      │    │ Updated records │    │ Report data     │  
+│ auto-categorized│    │ returned to UI  │    │ reflected in UI │    │ formatted &     │  
+│                 │    │                 │    │                 │    │ ready for view  │  
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘  
+                                                                                          
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                            DATA FLOW PATTERNS                                           │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
-│ 🔄 Real-time: User action → API call → Database → Immediate UI update                  │
-│ 📊 Batch: CSV upload → Background processing → Bulk database operations → Summary      │  
-│ 🎯 Caching: Frequent chart requests cached in memory for performance                   │
-│ 🔍 Search: Real-time filtering without database calls using client-side caching       │
+│ Real-time: User action → API call → Database → Immediate UI update                      |             
+│ Batch: CSV upload → Background processing → Bulk database operations → Summary          |        
+│ Caching: Frequent chart requests cached in memory for performance                       |                 
+│ Search: Real-time filtering without database calls using client-side caching            |        
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 
 ## 🚀 Key Features
