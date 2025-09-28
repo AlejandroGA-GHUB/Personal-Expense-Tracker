@@ -78,8 +78,7 @@ Tier 3: Database & Data Persistence
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐  
 │ Data stored &   │    │ Chart data      │    │ Updated records │    │ Report data     │  
 │ auto-categorized│    │ returned to UI  │    │ reflected in UI │    │ formatted &     │  
-│ (Keywords and   |    |                 |    |                 |    | ready for view  |
-| AI)             │    │                 │    │                 │    |                 │  
+│                 |    |                 |    |                 |    | ready for view  |                              │                 │    │                 |    │                 |    |                 |
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘  
                                                                                           
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
@@ -96,7 +95,7 @@ Tier 3: Database & Data Persistence
 - **🔒 100% Private**: All data stays on your computer
 - **📊 Visual Analytics**: Interactive charts and spending insights  
 - **📁 CSV Import**: Upload bank statements from any financial institution
-- **🏷️ Smart Categorization**: Automatic transaction categorization
+- **🏷️ Smart Categorization**: Automatic transaction categorization using keyword mapping and AI in the future
 - **📈 Financial Reports**: Monthly, yearly, and custom period reports
 - **⚡ Fast & Local**: No internet required after installation
 
