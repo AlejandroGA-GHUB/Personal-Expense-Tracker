@@ -2,47 +2,51 @@
 Pydantic schemas for API request/response validation.
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
-class TransactionCreate(BaseModel):
+class TransactionBase(BaseModel):
     """
     Schema for creating a new transaction via API.
     This validates incoming POST request data.
     """
     description: str = Field(..., max_length=255, description="What was purchased/received")
-    amount: float = Field(..., description="Dollar amount (negative=expense, positive=income)")
+    amount: float = Field(..., ne=0, description="Dollar amount (negative=expense, positive=income)")
     date: datetime = Field(..., description="When the transaction occurred")
     category_id: Optional[int] = Field(None, description="Which category this belongs to (optional)")
     
-    @validator('amount')
-    def amount_cannot_be_zero(cls, v):
-        """Custom validation: amount must not be zero"""
-        if v == 0:
-            raise ValueError('Transaction amount cannot be zero')
-        return v
-    
-    @validator('description')
-    def description_must_not_be_empty(cls, v):
-        """Custom validation: clean up description"""
-        v = v.strip()
-        if not v:
-            raise ValueError('Description cannot be empty')
-        return v
-
-# Example usage in FastAPI route:
-"""
-from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
-from .database import get_db
-
-@app.post("/transactions/")
-async def create_transaction(
-    transaction_data: TransactionCreate,  # <-- Pydantic validates this automatically
-    db: Session = Depends(get_db)
-):
-    # transaction_data is now a validated TransactionCreate object
-    # You can access: transaction_data.description, transaction_data.amount, etc.
+class TransactionCreate(TransactionBase):
+    """Schema for when creating a transaction manually, say one done with cash"""
     pass
-"""
+
+class TransactionCreateFromCSV(TransactionBase):
+    """
+    Schema for when auto creating transactions from a CSV parse
+    """
+    source_file: str = Field(..., max_length=255, description="CSV File name which was parsed for this transaction")
+    original_row: int = Field(..., gt=0, description="Row that this transaction resides in within its source_file")
+
+class TransactionUpdate(BaseModel):
+    """
+    For updating existing transactions - all fields optional
+    """
+    description: Optional[str] = Field(None, max_length=255)
+    amount: Optional[float] = Field(None, ne=0)
+    date: Optional[datetime] = None
+    category_id: Optional[int] = None
+
+class TransactionOut(TransactionBase):
+    """
+    For API responses - includes all database fields
+    """
+    id: int                                          # Database primary key
+    created_at: datetime                             # Auto-generated timestamp
+    updated_at: Optional[datetime] = None            # Auto-updated timestamp
+    
+    # CSV tracking fields (optional as they'd be only present for CSV-imported transactions)
+    source_file: Optional[str] = None                # CSV filename (if imported)
+    original_row: Optional[int] = None               # CSV row number (if imported)
+    
+    class Config:
+        from_attributes = True  # Allows SQLAlchemy model → JSON conversion
