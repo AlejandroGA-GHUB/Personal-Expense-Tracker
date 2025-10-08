@@ -30,6 +30,14 @@ wheels/
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
+finance.db
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
 
 # IDE
 .vscode/

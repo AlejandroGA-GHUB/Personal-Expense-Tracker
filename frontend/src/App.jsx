@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import './App.css'
 import CSVUpload from './components/CSVUpload'
+import ManualTransactionForm from './components/ManualTransactionForm'
+import Dashboard from './components/Dashboard'
 
 function App() {
   const [currentView, setCurrentView] = useState('upload')
@@ -17,6 +19,12 @@ function App() {
             Upload Data
           </button>
           <button 
+            onClick={() => setCurrentView('manual')}
+            className={currentView === 'manual' ? 'active' : ''}
+          >
+            Add Transaction
+          </button>
+          <button 
             onClick={() => setCurrentView('dashboard')}
             className={currentView === 'dashboard' ? 'active' : ''}
           >
@@ -27,12 +35,8 @@ function App() {
 
       <main className="app-main">
         {currentView === 'upload' && <CSVUpload />}
-        {currentView === 'dashboard' && (
-          <div className="dashboard-placeholder">
-            <h2>Dashboard</h2>
-            <p>Your financial dashboard will appear here after uploading data.</p>
-          </div>
-        )}
+        {currentView === 'manual' && <ManualTransactionForm />}
+        {currentView === 'dashboard' && <Dashboard />}
       </main>
     </div>
   )
