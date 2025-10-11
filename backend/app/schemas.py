@@ -50,3 +50,21 @@ class TransactionOut(TransactionBase):
     
     class Config:
         from_attributes = True  # Allows SQLAlchemy model → JSON conversion
+
+# Category schemas
+class CategoryBase(BaseModel):
+    """Base category schema"""
+    name: str = Field(..., max_length=100, description="Category name (e.g., 'Food', 'Transportation')")
+    description: Optional[str] = Field(None, max_length=255, description="Optional category description")
+
+class CategoryCreate(CategoryBase):
+    """Schema for creating new categories"""
+    pass
+
+class CategoryOut(CategoryBase):
+    """Schema for category API responses"""
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

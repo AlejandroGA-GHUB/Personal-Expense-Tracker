@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 
 # Import database and routes
 from .database import init_database, get_database_info
-from .routes import transactions, charts, reports
+from .routes import transactions, charts, reports, categories
 
 # Configuration
 DEBUG_MODE = True  # Set to False to reduce console output
@@ -64,6 +64,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(transactions.router, prefix="/api/transactions", tags=["transactions"])
+app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
 app.include_router(charts.router, prefix="/api/charts", tags=["charts"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 
@@ -119,7 +120,7 @@ if __name__ == "__main__":
         print("🔧 Development mode - API: http://localhost:8000/api/docs")
     
     uvicorn.run(
-        "main:app",
+        "app.main:app",
         host="127.0.0.1",
         port=8000,
         reload=True,

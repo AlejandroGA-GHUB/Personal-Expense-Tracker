@@ -29,6 +29,9 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Create base class for models
 Base = declarative_base()
 
+# Import models to register them with Base (must be after Base is defined)
+from . import models
+
 # === SQLITE OPTIMIZATION ===
 # Enable foreign key constraints and WAL mode for better performance
 
