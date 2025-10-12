@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import crud, schemas
+from ..utils.csv_parser import validate_csv_format, get_csv_preview, parse_bank_of_america_csv
 
 # Create router instance
 router = APIRouter()
@@ -119,8 +120,6 @@ async def upload_csv_transactions(
     Returns:
     - Summary of processing results including number of transactions created
     """
-    # Import here to avoid circular imports
-    from ..utils.csv_parser import parse_bank_of_america_csv, validate_csv_format
     
     # Validate file type
     if not file.filename.lower().endswith('.csv'):
@@ -187,7 +186,6 @@ async def preview_csv_transactions(
     Returns:
     - Preview of transactions and validation results
     """
-    from ..utils.csv_parser import validate_csv_format, get_csv_preview
     
     # Validate file type
     if not file.filename.lower().endswith('.csv'):
