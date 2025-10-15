@@ -1,20 +1,34 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import './CSVUpload.css';
 
-const CSVUpload = () => {
+const CSVUpload = ({ onUploadSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+  const [uploadResult, setUploadResult] = useState(null);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef(null);
 
   // Handle file selection
   const handleFileSelect = (file) => {
-    if (file && file.type === 'text/csv') {
-      setSelectedFile(file);
-      setUploadStatus(`Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
-    } else {
-      setUploadStatus('Please select a valid CSV file');
-      setSelectedFile(null);
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setError('Please select a CSV file');
+      return;
     }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    setError('');
+    setPreviewData(null);
+    setUploadResult(null);
   };
 
   // Handle drag events
@@ -46,33 +60,112 @@ const CSVUpload = () => {
     }
   };
 
-  // Handle file upload
-  const handleUpload = async () => {
+  // Handle preview
+  const handlePreview = async () => {
     if (!selectedFile) {
-      setUploadStatus('Please select a file first');
+      setError('Please select a CSV file first');
       return;
     }
 
-    setUploadStatus('Uploading...');
-    
-    // TODO: Add actual upload logic here
-    // For now, just simulate upload
-    setTimeout(() => {
-      setUploadStatus(`✅ Successfully uploaded ${selectedFile.name}`);
-    }, 1500);
+    setPreviewing(true);
+    setError('');
+    setPreviewData(null);
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('default_category_id', '7'); // Default to 'Other' category
+
+    try {
+      const response = await fetch('http://localhost:8000/api/transactions/preview-csv', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setPreviewData(data);
+      } else {
+        setError(data.detail || 'Failed to preview CSV file');
+      }
+    } catch (err) {
+      setError('Error connecting to server');
+      console.error('Preview error:', err);
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  // Handle file upload
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setError('Please select a CSV file first');
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+    setUploadResult(null);
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('default_category_id', '7'); // Default to 'Other' category
+
+    try {
+      const response = await fetch('http://localhost:8000/api/transactions/upload-csv', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setUploadResult(data);
+        setPreviewData(null); // Clear preview after successful upload
+        // Clear the file selection after successful upload
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        // Notify parent component of successful upload
+        if (onUploadSuccess) {
+          setTimeout(() => onUploadSuccess(), 2000); // Give user time to see success message
+        }
+      } else {
+        setError(data.detail || 'Failed to upload CSV file');
+      }
+    } catch (err) {
+      setError('Error connecting to server');
+      console.error('Upload error:', err);
+    } finally {
+      setUploading(false);
+    }
   };
 
   // Reset form
   const handleReset = () => {
     setSelectedFile(null);
-    setUploadStatus('');
+    setError('');
+    setPreviewData(null);
+    setUploadResult(null);
     setDragActive(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
     <div className="csv-upload-container">
-      <h2>Upload Bank Statement</h2>
-      <p>Upload your CSV bank statement to start tracking your finances</p>
+      <h2>Import Transactions from CSV</h2>
+      <p>Upload your CSV file to import transactions automatically</p>
       
       {/* Drag and Drop Area */}
       <div
@@ -100,6 +193,7 @@ const CSVUpload = () => {
           )}
           
           <input
+            ref={fileInputRef}
             type="file"
             accept=".csv"
             onChange={handleFileChange}
@@ -112,35 +206,132 @@ const CSVUpload = () => {
         </div>
       </div>
 
-      {/* Status Message */}
-      {uploadStatus && (
-        <div className={`status-message ${uploadStatus.includes('✅') ? 'success' : ''}`}>
-          {uploadStatus}
+      {/* Error Message */}
+      {error && (
+        <div className="error-message">
+          <span className="error-icon">⚠️</span>
+          {error}
         </div>
       )}
 
       {/* Action Buttons */}
-      <div className="upload-actions">
-        <button 
-          onClick={handleUpload} 
-          disabled={!selectedFile || uploadStatus.includes('Uploading')}
-          className="upload-btn"
-        >
-          {uploadStatus.includes('Uploading') ? 'Uploading...' : 'Upload File'}
-        </button>
-        
-        {selectedFile && (
+      {selectedFile && (
+        <div className="upload-actions">
+          <button
+            onClick={handlePreview}
+            disabled={previewing || uploading}
+            className="preview-btn"
+          >
+            {previewing ? (
+              <>
+                <span className="loading-spinner"></span>
+                Previewing...
+              </>
+            ) : (
+              <>
+                <span className="btn-icon">👁️</span>
+                Preview Transactions
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={handleUpload}
+            disabled={previewing || uploading}
+            className="upload-btn"
+          >
+            {uploading ? (
+              <>
+                <span className="loading-spinner"></span>
+                Uploading...
+              </>
+            ) : (
+              <>
+                <span className="btn-icon">📤</span>
+                Upload & Import
+              </>
+            )}
+          </button>
+
           <button onClick={handleReset} className="reset-btn">
             Clear
           </button>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Preview Results */}
+      {previewData && (
+        <div className="preview-results">
+          <h3>Preview Results</h3>
+          <div className="preview-summary">
+            <div className="summary-item">
+              <span className="label">File:</span>
+              <span className="value">{previewData.filename}</span>
+            </div>
+            <div className="summary-item">
+              <span className="label">Transactions Found:</span>
+              <span className="value">{previewData.total_transactions_found}</span>
+            </div>
+            <div className="summary-item">
+              <span className="label">Format:</span>
+              <span className="value">{previewData.validation.format}</span>
+            </div>
+          </div>
+          
+          {previewData.preview_transactions.length > 0 && (
+            <div className="preview-transactions">
+              <h4>Sample Transactions (first 5):</h4>
+              <div className="preview-table">
+                <div className="preview-header">
+                  <span>Date</span>
+                  <span>Description</span>
+                  <span>Amount</span>
+                </div>
+                {previewData.preview_transactions.map((transaction, index) => (
+                  <div key={index} className="preview-row">
+                    <span className="preview-date">{transaction.date}</span>
+                    <span className="preview-description">{transaction.description}</span>
+                    <span className={`preview-amount ${transaction.amount < 0 ? 'expense' : 'income'}`}>
+                      {transaction.amount < 0 ? '-' : '+'}${Math.abs(transaction.amount).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Upload Results */}
+      {uploadResult && (
+        <div className="upload-results success">
+          <div className="result-header">
+            <span className="success-icon">✅</span>
+            <h3>Upload Successful!</h3>
+          </div>
+          <div className="result-summary">
+            <div className="summary-item">
+              <span className="label">File:</span>
+              <span className="value">{uploadResult.filename}</span>
+            </div>
+            <div className="summary-item">
+              <span className="label">Transactions Created:</span>
+              <span className="value">{uploadResult.transactions_created}</span>
+            </div>
+            <div className="summary-item">
+              <span className="label">Total Rows Processed:</span>
+              <span className="value">{uploadResult.total_rows_processed}</span>
+            </div>
+          </div>
+          <p className="result-message">{uploadResult.message}</p>
+        </div>
+      )}
 
       {/* File Format Info */}
       <div className="format-info">
         <h4>Supported Format:</h4>
-        <p>CSV files with columns like: Date, Description, Amount, Category</p>
-        <p>Example: "2024-01-15", "Coffee Shop", "-4.50", "Food"</p>
+        <p>Currently supports Bank of America CSV files with standard export format</p>
+        <p>Must include rows with the following data: Date, Description, Amount</p>
       </div>
     </div>
   );
