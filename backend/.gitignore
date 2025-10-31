@@ -50,6 +50,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# REFERENCE mds
+CATEGORIZATION_COMPARISON.md
+
 # Logs
 *.log
 logs/

@@ -1,12 +1,12 @@
 """
 Transaction routes for personal finance tracker
 """
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Query
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import crud, schemas
-from ..utils.csv_parser import validate_csv_format, get_csv_preview, parse_bank_of_america_csv
+from ..utils.csv_parser import validate_csv_format, get_csv_preview, parse_csv_auto_detect
 
 # Create router instance
 router = APIRouter()
@@ -52,6 +52,34 @@ async def get_transactions(
     transactions = crud.get_transactions(db, skip=skip, limit=limit)
     return transactions
 
+@router.get("/filter", response_model=list[schemas.TransactionOut])
+async def get_filtered_transactions(
+    category_ids: list[int] = Query(None),
+    transaction_type: str = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all transactions with combined filtering - returns ALL matching results
+    
+    Query parameters:
+    - category_ids: Filter by specific category IDs (optional, can specify multiple)
+    - transaction_type: "Expense" or "Income" (optional)
+    
+    Note: Returns ALL matching transactions (no pagination limit)
+    Frontend handles pagination display
+    
+    Examples:
+    - GET /api/transactions/filter?category_ids=1&category_ids=3&transaction_type=Expense
+    - GET /api/transactions/filter?category_ids=1
+    - GET /api/transactions/filter?transaction_type=Income
+    """
+    return crud.get_filtered_transactions(
+        db=db,
+        category_ids=category_ids,
+        transaction_type=transaction_type
+    )
+
+
 @router.get("/category/{category_id}", response_model=list[schemas.TransactionOut])
 async def get_transactions_by_category_id(
     category_id: int,
@@ -65,14 +93,22 @@ async def get_transactions_by_category_id(
     
     Example: GET /api/transactions/category/1
     """
-    transactions = crud.get_transactions_by_category_id(db=db, category_id=category_id)
-    return transactions
+    sorted_transactions = crud.get_transactions_by_category_id(db=db, category_id=category_id)
+    return sorted_transactions
 
 @router.get("/expense_or_income/{expense_or_income}", response_model=list[schemas.TransactionOut])
 async def get_transaction_by_expense_or_income(
     expense_or_income: str,
     db: Session = Depends(get_db)
 ):
+    """
+    Get all transactions for a specific transaction type
+    
+    Path parameters:
+    - category_id: Transaction type to filter by, expense or income
+    
+    Example: GET /api/transactions/expense_or_income/"Expense"
+    """
     sorted_transactions = crud.get_transactions_by_expense_or_income(db=db, expense_or_income=expense_or_income)
     return sorted_transactions
 
@@ -107,15 +143,19 @@ async def update_transaction(
 @router.post("/upload-csv", response_model=dict)
 async def upload_csv_transactions(
     file: UploadFile = File(...),
-    default_category_id: int = 7,  # Default to 'Other' category
     db: Session = Depends(get_db)
 ):
     """
-    Upload and process a Bank of America CSV file to create transactions
+    Upload and process a CSV file to create transactions with auto-categorization
     
     Parameters:
     - file: CSV file upload
-    - default_category_id: Category to assign all transactions (default: 7 = 'Other')
+    
+    Transactions are automatically categorized using keyword-based analysis.
+    The system learns from your corrections to improve future categorizations.
+    
+    Supported formats:
+    - Bank of America
     
     Returns:
     - Summary of processing results including number of transactions created
@@ -135,11 +175,11 @@ async def upload_csv_transactions(
         if not validation["is_valid"]:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Invalid CSV format. Expected Bank of America format. Found {validation['total_rows']} rows but no valid data header."
+                detail=f"Invalid CSV format. Could not detect supported bank format. Found {validation['total_rows']} rows but no valid data header."
             )
         
-        # Parse transactions
-        transactions = parse_bank_of_america_csv(csv_text, file.filename, default_category_id)
+        # Parse transactions with auto-detection and auto-categorization
+        transactions = parse_csv_auto_detect(csv_text, file.filename, db)
         
         if not transactions:
             return {
@@ -148,8 +188,7 @@ async def upload_csv_transactions(
                 "filename": file.filename,
                 "transactions_created": 0,
                 "total_rows_processed": validation["total_rows"],
-                "data_rows_found": validation["data_rows"],
-                "default_category_id": default_category_id
+                "data_rows_found": validation["data_rows"]
             }
         
         # Create transactions in database
@@ -157,12 +196,12 @@ async def upload_csv_transactions(
         
         return {
             "success": True,
-            "message": f"Successfully imported {len(created_transactions)} transactions",
+            "message": f"Successfully imported {len(created_transactions)} transactions with auto-categorization",
             "filename": file.filename,
             "transactions_created": len(created_transactions),
             "total_rows_processed": validation["total_rows"],
             "data_rows_found": validation["data_rows"],
-            "default_category_id": default_category_id
+            "bank_format": validation.get("format_name", "Unknown")
         }
         
     except UnicodeDecodeError:
@@ -173,18 +212,17 @@ async def upload_csv_transactions(
 @router.post("/preview-csv", response_model=dict)
 async def preview_csv_transactions(
     file: UploadFile = File(...),
-    default_category_id: int = 7
+    db: Session = Depends(get_db)
 ):
     """
     Preview the first few transactions that would be created from a CSV file
-    without actually creating them in the database
+    without actually creating them in the database (includes auto-categorization preview)
     
     Parameters:
     - file: CSV file upload
-    - default_category_id: Category that would be assigned to transactions
     
     Returns:
-    - Preview of transactions and validation results
+    - Preview of transactions with auto-categorized categories and validation results
     """
     
     # Validate file type
@@ -196,17 +234,17 @@ async def preview_csv_transactions(
         csv_content = await file.read()
         csv_text = csv_content.decode('utf-8')
         
-        # Validate and get preview
+        # Validate and get preview with auto-categorization (show all transactions)
         validation = validate_csv_format(csv_text)
-        preview = get_csv_preview(csv_text, file.filename, max_transactions=5)
+        preview = get_csv_preview(csv_text, file.filename, db, max_transactions=None)
         
         return {
             "success": True,
             "filename": file.filename,
             "validation": validation,
             "preview_transactions": preview,
-            "total_transactions_found": validation["data_rows"],
-            "default_category_id": default_category_id
+            "total_transactions_found": len(preview),
+            "showing_all": True
         }
         
     except UnicodeDecodeError:

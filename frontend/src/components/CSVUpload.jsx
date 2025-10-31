@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import './CSVUpload.css';
 
 const CSVUpload = ({ onUploadSuccess }) => {
@@ -9,7 +9,68 @@ const CSVUpload = ({ onUploadSuccess }) => {
   const [previewData, setPreviewData] = useState(null);
   const [uploadResult, setUploadResult] = useState(null);
   const [error, setError] = useState('');
+  const [detectedBank, setDetectedBank] = useState(null);
+  const [detectingBank, setDetectingBank] = useState(false);
+  const [categories, setCategories] = useState([]);
   const fileInputRef = useRef(null);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data);
+        }
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Helper function to get category name by ID
+  const getCategoryName = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    return category ? category.name : 'Unknown';
+  };
+
+  // Helper function to get category color by ID
+  const getCategoryColor = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    return category ? category.color : '#6c757d';
+  };
+
+  // Detect bank format from file
+  const detectBankFormat = async (file) => {
+    setDetectingBank(true);
+    setDetectedBank(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/transactions/preview-csv', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success && data.validation) {
+        setDetectedBank({
+          name: data.validation.format_name || 'Unknown',
+          format: data.validation.format,
+          isValid: data.validation.is_valid
+        });
+      }
+    } catch (err) {
+      console.error('Bank detection error:', err);
+    } finally {
+      setDetectingBank(false);
+    }
+  };
 
   // Handle file selection
   const handleFileSelect = (file) => {
@@ -29,6 +90,9 @@ const CSVUpload = ({ onUploadSuccess }) => {
     setError('');
     setPreviewData(null);
     setUploadResult(null);
+    
+    // Automatically detect bank format
+    detectBankFormat(file);
   };
 
   // Handle drag events
@@ -73,7 +137,6 @@ const CSVUpload = ({ onUploadSuccess }) => {
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('default_category_id', '7'); // Default to 'Other' category
 
     try {
       const response = await fetch('http://localhost:8000/api/transactions/preview-csv', {
@@ -109,7 +172,6 @@ const CSVUpload = ({ onUploadSuccess }) => {
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('default_category_id', '7'); // Default to 'Other' category
 
     try {
       const response = await fetch('http://localhost:8000/api/transactions/upload-csv', {
@@ -149,6 +211,8 @@ const CSVUpload = ({ onUploadSuccess }) => {
     setPreviewData(null);
     setUploadResult(null);
     setDragActive(false);
+    setDetectedBank(null);
+    setDetectingBank(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -183,6 +247,30 @@ const CSVUpload = ({ onUploadSuccess }) => {
                 <span className="file-name">{selectedFile.name}</span>
                 <span className="file-size">({(selectedFile.size / 1024).toFixed(2)} KB)</span>
               </div>
+              
+              {/* Bank Detection Indicator */}
+              {detectingBank && (
+                <div className="bank-detection detecting">
+                  <span className="detection-icon">🔍</span>
+                  <span>Detecting bank format...</span>
+                </div>
+              )}
+              
+              {!detectingBank && detectedBank && (
+                <div className={`bank-detection ${detectedBank.isValid ? 'detected' : 'unknown'}`}>
+                  {detectedBank.isValid ? (
+                    <>
+                      <span className="detection-icon">✅</span>
+                      <span><strong>{detectedBank.name}</strong> format detected</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="detection-icon">⚠️</span>
+                      <span>Unknown bank format</span>
+                    </>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -269,33 +357,44 @@ const CSVUpload = ({ onUploadSuccess }) => {
               <span className="value">{previewData.filename}</span>
             </div>
             <div className="summary-item">
-              <span className="label">Transactions Found:</span>
-              <span className="value">{previewData.total_transactions_found}</span>
+              <span className="label">Detected Bank:</span>
+              <span className="value">{previewData.validation.format_name || previewData.validation.format}</span>
             </div>
             <div className="summary-item">
-              <span className="label">Format:</span>
-              <span className="value">{previewData.validation.format}</span>
+              <span className="label">Transactions Found:</span>
+              <span className="value">{previewData.total_transactions_found}</span>
             </div>
           </div>
           
           {previewData.preview_transactions.length > 0 && (
             <div className="preview-transactions">
-              <h4>Sample Transactions (first 5):</h4>
-              <div className="preview-table">
-                <div className="preview-header">
-                  <span>Date</span>
-                  <span>Description</span>
-                  <span>Amount</span>
-                </div>
-                {previewData.preview_transactions.map((transaction, index) => (
-                  <div key={index} className="preview-row">
-                    <span className="preview-date">{transaction.date}</span>
-                    <span className="preview-description">{transaction.description}</span>
-                    <span className={`preview-amount ${transaction.amount < 0 ? 'expense' : 'income'}`}>
-                      {transaction.amount < 0 ? '-' : '+'}${Math.abs(transaction.amount).toFixed(2)}
-                    </span>
+              <h4>All Transactions ({previewData.preview_transactions.length}) with Auto-Categorization:</h4>
+              <div className="preview-table-container">
+                <div className="preview-table">
+                  <div className="preview-header">
+                    <span>Date</span>
+                    <span>Description</span>
+                    <span>Amount</span>
+                    <span>Category</span>
                   </div>
-                ))}
+                  {previewData.preview_transactions.map((transaction, index) => (
+                    <div key={index} className="preview-row">
+                      <span className="preview-date">{transaction.date}</span>
+                      <span className="preview-description">{transaction.description}</span>
+                      <span className={`preview-amount ${transaction.amount < 0 ? 'expense' : 'income'}`}>
+                        {transaction.amount < 0 ? '-' : '+'}${Math.abs(transaction.amount).toFixed(2)}
+                      </span>
+                      <span className="preview-category">
+                        <span 
+                          className="category-badge" 
+                          style={{ backgroundColor: getCategoryColor(transaction.category_id) }}
+                        >
+                          {getCategoryName(transaction.category_id)}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -314,6 +413,12 @@ const CSVUpload = ({ onUploadSuccess }) => {
               <span className="label">File:</span>
               <span className="value">{uploadResult.filename}</span>
             </div>
+            {uploadResult.bank_format && (
+              <div className="summary-item">
+                <span className="label">Bank Format:</span>
+                <span className="value">{uploadResult.bank_format}</span>
+              </div>
+            )}
             <div className="summary-item">
               <span className="label">Transactions Created:</span>
               <span className="value">{uploadResult.transactions_created}</span>
@@ -329,9 +434,12 @@ const CSVUpload = ({ onUploadSuccess }) => {
 
       {/* File Format Info */}
       <div className="format-info">
-        <h4>Supported Format:</h4>
-        <p>Currently supports Bank of America CSV files with standard export format</p>
-        <p>Must include rows with the following data: Date, Description, Amount</p>
+        <h4>Supported Formats:</h4>
+        <p>Automatically detects and imports transactions from:</p>
+        <ul>
+          <li>Bank of America CSV exports</li>
+        </ul>
+        <p className="format-note">The system will automatically detect your bank's format</p>
       </div>
     </div>
   );

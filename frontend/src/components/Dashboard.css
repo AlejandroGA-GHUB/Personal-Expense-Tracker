@@ -1,4 +1,21 @@
 /* Dashboard Container */
+/* Smooth animation for dialogs and popups */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Apply smooth color scheme transitions globally */
+* {
+  color-scheme: light;
+}
+
 .dashboard-container {
   max-width: 1200px;
   margin: 1rem auto;
@@ -92,6 +109,57 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+/* Sort Control */
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 8px 12px;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 10px;
+  border: 1px solid rgba(102, 126, 234, 0.15);
+}
+
+.sort-label {
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sort-select {
+  padding: 8px 12px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #2c3e50;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  outline: none;
+  min-width: 280px;
+}
+
+.sort-select option {
+  padding: 10px;
+  font-weight: 500;
+  color: #2c3e50;
+  background: white;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.sort-select:hover {
+  border-color: rgba(102, 126, 234, 0.4);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.sort-select:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .filter-btn {
@@ -228,12 +296,13 @@
 
 /* Add Category Form */
 .add-category-form {
+  max-width: 900px;
+  margin: 0 auto 2rem auto;
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(10px);
   border: 2px solid rgba(16, 185, 129, 0.2);
   border-radius: 15px;
   padding: 2rem;
-  margin-bottom: 2rem;
   box-shadow: 0 8px 32px rgba(16, 185, 129, 0.1);
 }
 
@@ -288,13 +357,15 @@
   display: flex;
   gap: 1rem;
   justify-content: flex-end;
+  align-items: center;
 }
 
-.cancel-btn, .create-btn {
-  padding: 12px 24px;
+/* Form buttons - for Add Category and Filter forms */
+.form-actions .cancel-btn,
+.form-actions .reset-btn,
+.form-actions .create-btn {
   border: none;
   border-radius: 10px;
-  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -302,19 +373,28 @@
   overflow: hidden;
 }
 
-.cancel-btn {
-  background: linear-gradient(45deg, #a0aec0, #718096);
-  color: white;
-  box-shadow: 0 4px 15px rgba(160, 174, 192, 0.3);
+.form-actions .cancel-btn,
+.form-actions .reset-btn {
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  box-shadow: none;
 }
 
-.cancel-btn:hover:not(:disabled) {
-  background: linear-gradient(45deg, #718096, #4a5568);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(160, 174, 192, 0.4);
+.form-actions .cancel-btn:hover:not(:disabled),
+.form-actions .reset-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
+  border-color: #f87171;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
 }
 
-.create-btn {
+.form-actions .create-btn {
+  padding: 12px 24px;
+  font-size: 1rem;
   background: linear-gradient(45deg, #10b981, #059669);
   color: white;
   box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
@@ -334,86 +414,113 @@
 }
 
 /* Filter Modal */
-.filter-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.filter-modal {
-  background: white;
+/* Filter Dropdown Form - Similar to Add Category */
+.filter-form {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(102, 126, 234, 0.2);
   border-radius: 15px;
-  max-width: 500px;
-  width: 100%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  overflow: hidden;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.1);
 }
 
-.filter-modal-header {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
-  padding: 1.5rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.filter-form .form-header {
+  margin-bottom: 1.5rem;
 }
 
-.filter-modal-header h3 {
+.filter-form .form-header h3 {
+  color: #2c3e50;
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
 }
 
-.close-modal-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.close-modal-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.filter-modal-content {
-  padding: 2rem;
+.filter-form .form-fields {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
-.filter-section {
+.filter-form .field-group {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.filter-section label {
+.filter-form .field-group label {
   font-weight: 600;
   color: #2c3e50;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
-.filter-select {
+/* Category filter with checkboxes */
+.category-filter-wrapper {
+  position: relative;
+}
+
+.category-select-display {
+  /* Inherit exact same styles as regular select */
+  padding: 12px 16px;
+  border: 2px solid #cbd5e0;
+  border-radius: 10px;
+  background: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  pointer-events: auto;
+}
+
+.category-select-display:hover {
+  border-color: #667eea;
+}
+
+.category-select-display:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.checkbox-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: white;
+  border: 2px solid #cbd5e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font-size: 0.95rem;
+  color: #2c3e50;
+}
+
+.checkbox-option:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.checkbox-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.filter-form select {
   padding: 12px 16px;
   border: 2px solid #cbd5e0;
   border-radius: 10px;
@@ -423,32 +530,72 @@
   transition: all 0.3s ease;
 }
 
-.filter-select:hover {
+.filter-form select:hover {
   border-color: #667eea;
 }
 
-.filter-select:focus {
+.filter-form select:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.filter-modal-actions {
-  padding: 1.5rem 2rem;
-  background: rgba(248, 250, 252, 0.8);
+.filter-form .form-actions {
   display: flex;
   gap: 1rem;
   justify-content: flex-end;
 }
 
-.reset-filters-btn, .apply-filters-btn {
-  padding: 12px 24px;
+/* Filter form uses same button styles as form-actions above */
+.filter-form .reset-btn,
+.filter-form .apply-btn {
   border: none;
   border-radius: 10px;
-  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+}
+
+.filter-form .reset-btn {
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.filter-form .reset-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
+  border-color: #f87171;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+}
+
+.filter-form .apply-btn {
+  padding: 12px 24px;
+  font-size: 1rem;
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.filter-form .apply-btn:hover {
+  background: linear-gradient(45deg, #5568d3, #6a3f8f);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.filter-form .reset-btn:disabled,
+.filter-form .apply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Keep old modal styles for compatibility but hide by default */
+.filter-modal-overlay {
+  display: none;
 }
 
 .reset-filters-btn {
@@ -484,11 +631,12 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
+  padding: 2rem;
+  box-sizing: border-box;
 }
 
 .csv-modal {
@@ -500,17 +648,16 @@
   max-width: 90vw;
   max-height: 90vh;
   overflow-y: auto;
-  animation: modalSlideIn 0.3s ease-out;
+  animation: modalFadeIn 0.3s ease-out;
+  position: relative;
 }
 
-@keyframes modalSlideIn {
+@keyframes modalFadeIn {
   from {
     opacity: 0;
-    transform: scale(0.9) translateY(-20px);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
   }
 }
 
@@ -531,6 +678,27 @@
   font-weight: 600;
 }
 
+.close-modal-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  line-height: 1;
+}
+
+.close-modal-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .csv-modal-content {
   padding: 0;
 }
@@ -540,16 +708,16 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  right: 0;
+  bottom: 0;
   background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(8px);
-  z-index: 1000;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
-  animation: overlayFadeIn 0.3s ease-out;
+  padding: 2rem;
+  box-sizing: border-box;
 }
 
 .file-info-modal {
@@ -562,7 +730,8 @@
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: modalSlideIn 0.3s ease-out;
+  animation: modalFadeIn 0.3s ease-out;
+  position: relative;
 }
 
 .file-info-modal-header {
@@ -813,6 +982,347 @@
   min-width: 120px;
 }
 
+/* Actions Column Styling */
+.actions-cell {
+  padding: 0.75rem;
+  text-align: center;
+  min-width: 100px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  animation: buttonGroupFadeIn 0.3s ease-out;
+}
+
+@keyframes buttonGroupFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.edit-btn, .save-btn, .cancel-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  position: relative;
+  overflow: hidden;
+  will-change: transform, background-color, box-shadow;
+}
+
+/* Ripple effect on click */
+.edit-btn::after, .save-btn::after, .cancel-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.edit-btn:active::after, .save-btn:active::after, .cancel-btn:active::after {
+  width: 100px;
+  height: 100px;
+}
+
+.edit-btn {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+.edit-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  transform: scale(1.15) rotate(5deg);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.save-btn {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  font-weight: bold;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.2);
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.cancel-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.save-btn:disabled, .cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Inline Edit Inputs */
+.edit-input, .edit-select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 2px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  background: white;
+  animation: inputSlideIn 0.3s ease-out;
+  will-change: transform, border-color, box-shadow;
+}
+
+@keyframes inputSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.edit-input:hover, .edit-select:hover {
+  border-color: #a0aec0;
+  transform: translateY(-1px);
+}
+
+.edit-input:focus, .edit-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15),
+              0 4px 12px rgba(102, 126, 234, 0.08);
+  transform: translateY(-1px);
+}
+
+.date-input {
+  min-width: 180px;
+  color-scheme: light;
+  transition: all 0.2s ease;
+}
+
+/* DateTime Edit Group - Separate Date and Time Inputs */
+.datetime-edit-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.date-only-input,
+.time-input {
+  color-scheme: light;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, box-shadow;
+}
+
+.date-only-input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.time-input {
+  width: 100px;
+}
+
+/* Smooth calendar/clock picker indicators with elegant transitions */
+.date-only-input::-webkit-calendar-picker-indicator,
+.time-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              filter 0.3s ease;
+  filter: invert(0.3) brightness(1.2);
+  will-change: opacity, transform;
+}
+
+.date-only-input:hover::-webkit-calendar-picker-indicator,
+.time-input:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  transform: scale(1.15);
+  filter: invert(0.4) brightness(1);
+}
+
+/* Smooth focus effects with glow */
+.date-only-input:focus,
+.time-input:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15),
+              0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+.date-only-input:focus::-webkit-calendar-picker-indicator,
+.time-input:focus::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* Ultra-smooth field transitions */
+.date-only-input::-webkit-datetime-edit,
+.time-input::-webkit-datetime-edit {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.date-only-input::-webkit-datetime-edit-fields-wrapper,
+.time-input::-webkit-datetime-edit-fields-wrapper {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 2px;
+}
+
+/* Smooth color transitions for all date/time field segments */
+.date-only-input::-webkit-datetime-edit-text,
+.date-only-input::-webkit-datetime-edit-month-field,
+.date-only-input::-webkit-datetime-edit-day-field,
+.date-only-input::-webkit-datetime-edit-year-field,
+.time-input::-webkit-datetime-edit-text,
+.time-input::-webkit-datetime-edit-hour-field,
+.time-input::-webkit-datetime-edit-minute-field,
+.time-input::-webkit-datetime-edit-ampm-field {
+  color: #2c3e50;
+  transition: color 0.3s ease, background-color 0.3s ease;
+  padding: 1px 2px;
+  border-radius: 3px;
+}
+
+/* Highlight effect on focus */
+.date-only-input:focus::-webkit-datetime-edit-month-field,
+.date-only-input:focus::-webkit-datetime-edit-day-field,
+.date-only-input:focus::-webkit-datetime-edit-year-field,
+.time-input:focus::-webkit-datetime-edit-hour-field,
+.time-input:focus::-webkit-datetime-edit-minute-field {
+  background-color: rgba(102, 126, 234, 0.08);
+}
+
+/* Smooth calendar picker popup */
+.date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+  filter: none;
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Target the datetime edit fields for smooth transitions */
+.date-input::-webkit-datetime-edit {
+  transition: all 0.2s ease;
+}
+
+.date-input::-webkit-datetime-edit-fields-wrapper {
+  transition: all 0.2s ease;
+}
+
+/* Ensure light theme for the picker */
+.date-input::-webkit-datetime-edit-text,
+.date-input::-webkit-datetime-edit-month-field,
+.date-input::-webkit-datetime-edit-day-field,
+.date-input::-webkit-datetime-edit-year-field,
+.date-input::-webkit-datetime-edit-hour-field,
+.date-input::-webkit-datetime-edit-minute-field,
+.date-input::-webkit-datetime-edit-ampm-field {
+  color: #2c3e50;
+  transition: all 0.2s ease;
+}
+
+.amount-edit-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.type-select {
+  max-width: 90px;
+}
+
+.amount-input {
+  max-width: 100px;
+}
+
+/* Editing Row Highlight */
+.editing-row {
+  background: rgba(102, 126, 234, 0.05);
+  border-left: 4px solid #667eea;
+  animation: editRowSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes editRowSlideIn {
+  from {
+    background: rgba(102, 126, 234, 0);
+    border-left-color: transparent;
+    transform: translateX(-5px);
+  }
+  to {
+    background: rgba(102, 126, 234, 0.05);
+    border-left-color: #667eea;
+    transform: translateX(0);
+  }
+}
+
+.editing-row td {
+  padding: 1rem 0.75rem;
+  animation: fadeInUp 0.3s ease-out backwards;
+}
+
+.editing-row td:nth-child(1) { animation-delay: 0.05s; }
+.editing-row td:nth-child(2) { animation-delay: 0.08s; }
+.editing-row td:nth-child(3) { animation-delay: 0.11s; }
+.editing-row td:nth-child(4) { animation-delay: 0.14s; }
+.editing-row td:nth-child(5) { animation-delay: 0.17s; }
+.editing-row td:nth-child(6) { animation-delay: 0.20s; }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .source-badge {
   display: inline-flex;
   align-items: center;
@@ -978,8 +1488,9 @@
   }
   
   .filter-modal, .csv-modal {
-    margin: 1rem;
-    max-width: none;
+    margin: 0;
+    max-width: calc(100vw - 2rem);
+    width: calc(100vw - 2rem);
   }
   
   .filter-modal-actions {
@@ -1048,6 +1559,36 @@
   .source-badge {
     padding: 0.3rem 0.4rem;
     font-size: 0.7rem;
+  }
+  
+  .actions-cell {
+    min-width: 80px;
+    padding: 0.5rem 0.25rem;
+  }
+  
+  .edit-btn, .save-btn, .cancel-btn {
+    min-width: 30px;
+    min-height: 30px;
+    font-size: 1rem;
+    padding: 0.3rem;
+  }
+  
+  .action-buttons {
+    gap: 0.3rem;
+  }
+  
+  .edit-input, .edit-select {
+    font-size: 0.8rem;
+    padding: 0.4rem;
+  }
+  
+  .amount-edit-group {
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  
+  .type-select, .amount-input {
+    max-width: 100%;
   }
   
   .file-info-modal {

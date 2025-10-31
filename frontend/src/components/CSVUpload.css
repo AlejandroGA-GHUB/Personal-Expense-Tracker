@@ -1,5 +1,5 @@
 .csv-upload-container {
-  max-width: 600px;
+  max-width: 900px;
   margin: 1rem auto;
   padding: 2rem;
   background: rgba(255, 255, 255, 0.95);
@@ -119,6 +119,55 @@
 .file-size {
   color: #666;
   font-size: 0.9rem;
+}
+
+/* Bank Detection Indicator */
+.bank-detection {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  animation: slideIn 0.3s ease;
+  margin-top: 0.5rem;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bank-detection.detecting {
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  color: #667eea;
+}
+
+.bank-detection.detected {
+  background: rgba(72, 187, 120, 0.1);
+  border: 1px solid rgba(72, 187, 120, 0.3);
+  color: #2d7a4f;
+}
+
+.bank-detection.unknown {
+  background: rgba(237, 137, 54, 0.1);
+  border: 1px solid rgba(237, 137, 54, 0.3);
+  color: #c05621;
+}
+
+.detection-icon {
+  font-size: 1.2rem;
+}
+
+.bank-detection strong {
+  color: inherit;
 }
 
 /* File Input */
@@ -404,26 +453,54 @@
   font-size: 1.1rem;
 }
 
+.preview-table-container {
+  max-height: 500px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+/* Custom scrollbar for preview table */
+.preview-table-container::-webkit-scrollbar {
+  width: 10px;
+}
+
+.preview-table-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.preview-table-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  border-radius: 8px;
+}
+
+.preview-table-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #5a67d8, #667eea);
+}
+
 .preview-table {
   background: white;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(102, 126, 234, 0.1);
 }
 
 .preview-header {
   display: grid;
-  grid-template-columns: 120px 1fr 120px;
+  grid-template-columns: 120px 1fr 120px 140px;
   gap: 1rem;
   padding: 1rem;
   background: linear-gradient(45deg, #667eea, #764ba2);
   color: white;
   font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .preview-row {
   display: grid;
-  grid-template-columns: 120px 1fr 120px;
+  grid-template-columns: 120px 1fr 120px 140px;
   gap: 1rem;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #f1f5f9;
@@ -455,6 +532,30 @@
 
 .preview-amount.income {
   color: #059669;
+}
+
+.preview-category {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.category-badge {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.category-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Upload Results */
@@ -519,9 +620,15 @@
   }
 
   .preview-header, .preview-row {
-    grid-template-columns: 100px 1fr 100px;
+    grid-template-columns: 80px 1fr 90px 100px;
     gap: 0.5rem;
     padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .category-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
   }
 
   .summary-item {

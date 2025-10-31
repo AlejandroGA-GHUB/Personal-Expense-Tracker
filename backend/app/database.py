@@ -77,8 +77,9 @@ def init_database():
     # Create tables
     create_tables()
     
-    # Add default categories if database is empty
+    # Add default categories and keywords if database is empty
     from .models import Category, DEFAULT_CATEGORIES
+    from .utils.categorizer import seed_default_keywords
     
     db = SessionLocal()
     try:
@@ -95,6 +96,11 @@ def init_database():
             
             db.commit()
             print(f"✅ Added {len(DEFAULT_CATEGORIES)} default categories")
+            
+            # Seed default keywords for auto-categorization
+            print("🔑 Seeding default keywords for auto-categorization...")
+            seed_default_keywords(db)
+            
         else:
             print(f"📊 Database already initialized with {existing_categories} categories")
             

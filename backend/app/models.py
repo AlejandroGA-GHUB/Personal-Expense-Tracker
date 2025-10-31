@@ -27,6 +27,27 @@ class Category(Base):
     
     # Relationship: One category can be used by many transactions
     transactions = relationship("Transaction", back_populates="category")
+    
+    # Relationship: One category can have many learned keywords
+    keywords = relationship("CategoryKeyword", back_populates="category", cascade="all, delete-orphan")
+
+
+# === CATEGORY KEYWORD MODEL ===
+# Keyword-based auto-categorization with adaptive learning
+
+class CategoryKeyword(Base):
+    
+    __tablename__ = "category_keywords"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False, index=True)
+    keyword = Column(String(100), nullable=False, index=True)
+    weight = Column(Integer, default=1, nullable=False)
+    is_default = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    category = relationship("Category", back_populates="keywords")
 
 
 # === TRANSACTION MODEL ===
@@ -46,6 +67,9 @@ class Transaction(Base):
     # Links to category (foreign key)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)  # Can be uncategorized
     # NOTE: No user_id needed in distributed mode - each user has their own database
+    
+    # Extracted keywords for learning (comma-separated)
+    extracted_keywords = Column(String(500), nullable=True)
     
     # CSV upload tracking (for audit trail)
     source_file = Column(String(255), nullable=True)  # "chase_statement_jan2024.csv"
@@ -132,3 +156,135 @@ DEFAULT_CATEGORIES = [
         "is_default": True
     },
 ]
+
+
+# === DEFAULT CATEGORY KEYWORDS ===
+# Comprehensive keyword mappings for smart auto-categorization
+# Special rules: Positive amounts default to Income category
+
+DEFAULT_KEYWORDS = {
+    "Food & Dining": [
+        # Major Fast Food Chains
+        "starbucks", "mcdonald", "burger king", "wendy", "taco bell", "kfc", "chick-fil-a",
+        "chipotle", "subway", "panera", "dunkin", "domino", "pizza hut", "papa john",
+        "little caesars", "popeyes", "arby", "sonic", "dairy queen", "five guys",
+        # Restaurants
+        "restaurant", "cafe", "coffee", "diner", "bistro", "grill", "bar", "pub",
+        "olive garden", "applebee", "chili", "outback", "red lobster", "cheesecake factory",
+        # Grocery Stores
+        "grocery", "supermarket", "whole foods", "trader joe", "safeway", "kroger",
+        "publix", "wegmans", "aldi", "food lion", "albertsons", "heb", "giant eagle",
+        "winn dixie", "fred meyer", "sprouts", "fresh market",
+        # Big Box Stores (food sections)
+        "walmart", "target", "costco", "sam club", "bj wholesale",
+        # Food Delivery
+        "doordash", "uber eats", "grubhub", "postmates", "seamless", "instacart",
+        "gopuff", "deliveroo",
+        # Generic
+        "food", "dining", "meal", "eat", "bakery", "deli", "market", "butcher",
+        "produce", "meat", "seafood"
+    ],
+    
+    "Transportation": [
+        # Gas Stations
+        "shell", "exxon", "chevron", "bp", "mobil", "texaco", "valero", "sunoco",
+        "arco", "marathon", "speedway", "wawa", "circle k", "7-eleven", "pilot",
+        "flying j", "loves", "gulf", "citgo", "conoco", "phillips 66",
+        # Rideshare & Taxi
+        "uber", "lyft", "taxi", "cab", "rideshare", "via",
+        # Public Transit
+        "transit", "metro", "subway", "train", "bus", "rail", "mta", "bart", "cta",
+        "septa", "wmata", "mbta", "metrocard", "clipper", "orca", "charlie card",
+        # Parking & Tolls
+        "parking", "park", "toll", "ezpass", "fastrak", "sunpass", "ipass",
+        # Auto Services  
+        "gas", "fuel", "auto", "car wash", "oil change", "jiffy lube", "valvoline",
+        "pep boys", "autozone", "advance auto", "napa", "mechanic", "tire", "repair",
+        "smog", "dmv", "registration", "aaa", "roadside"
+    ],
+    
+    "Shopping": [
+        # Online Retailers
+        "amazon", "ebay", "etsy", "wayfair", "zappos", "chewy", "overstock",
+        "wish", "ali express", "newegg",
+        # Payment Processors (when used for shopping/expenses)
+        "paypal", "venmo", "square", "stripe",
+        # Department Stores
+        "macy", "nordstrom", "kohl", "jcpenney", "dillard", "bloomingdale",
+        "sears", "belk", "von maur",
+        # Discount Stores
+        "tjmaxx", "marshalls", "ross", "burlington", "homegoods", "sierra",
+        "dollar tree", "dollar general", "family dollar", "big lots",
+        # Clothing
+        "gap", "old navy", "banana republic", "h&m", "zara", "forever 21",
+        "uniqlo", "urban outfitters", "american eagle", "hollister", "abercrombie",
+        "victoria secret", "bath body works",
+        # Electronics
+        "best buy", "apple store", "microsoft store", "gamestop", "micro center",
+        # Home Improvement
+        "home depot", "lowes", "menards", "ace hardware", "true value",
+        # General
+        "store", "shop", "shopping", "retail", "mall", "outlet", "market",
+        "boutique", "warehouse", "wholesale"
+    ],
+    
+    "Entertainment": [
+        # Streaming Services
+        "netflix", "hulu", "disney", "disney+", "hbo", "hbo max", "amazon prime",
+        "apple tv", "paramount", "peacock", "showtime", "starz", "espn",
+        # Music Streaming
+        "spotify", "apple music", "pandora", "youtube premium", "tidal", "amazon music",
+        # Gaming
+        "steam", "playstation", "xbox", "nintendo", "epic games", "blizzard",
+        "riot games", "twitch", "gaming",
+        # Movies & Events
+        "cinema", "theater", "theatre", "movie", "amc", "regal", "cinemark",
+        "alamo drafthouse", "imax", "fandango", "moviepass",
+        "concert", "ticket", "ticketmaster", "stubhub", "eventbrite", "livenation",
+        # Recreation & Fitness
+        "gym", "fitness", "planet fitness", "la fitness", "24 hour fitness",
+        "equinox", "crunch", "ymca", "yoga", "pilates", "crossfit", "peloton",
+        # Hobbies
+        "hobby lobby", "michaels", "joann", "books", "barnes noble", "bookstore"
+    ],
+    
+    "Bills & Utilities": [
+        # Electric & Gas
+        "electric", "electricity", "power", "energy", "pge", "duke energy",
+        "con edison", "coned", "southern company", "exelon", "dominion",
+        "gas company", "natural gas", "propane",
+        # Water & Sewer
+        "water", "sewer", "utility", "utilities", "municipal",
+        # Trash
+        "trash", "garbage", "waste management", "republic services", "recology",
+        # Internet & Cable
+        "internet", "cable", "comcast", "xfinity", "spectrum", "charter",
+        "cox", "optimum", "frontier", "centurylink", "verizon fios", "att fiber",
+        # Phone
+        "phone", "wireless", "cellular", "mobile", "verizon", "att", "at&t",
+        "t-mobile", "tmobile", "sprint", "boost", "cricket", "metro pcs",
+        # Housing
+        "rent", "rental", "lease", "landlord", "property management", "apartment",
+        "mortgage", "loan payment", "hoa", "homeowner association",
+        # Insurance
+        "insurance", "geico", "state farm", "allstate", "progressive", "farmers",
+        "liberty mutual", "nationwide", "usaa",
+        # Subscriptions
+        "subscription", "membership", "recurring", "monthly", "annual"
+    ],
+    
+    "Income": [
+        # Employment
+        "payroll", "salary", "wage", "paycheck", "direct deposit", "employer",
+        "bonus", "commission", "tip", "tips", "income", "payment received",
+        # Freelance & Gig
+        "freelance", "consulting", "contractor", "upwork", "fiverr", "venmo",
+        "paypal", "zelle", "cash app", "square",
+        # Returns & Refunds
+        "refund", "reimbursement", "return", "credit", "cashback", "cash back",
+        "rebate", "reward",
+        # Investments
+        "dividend", "interest", "capital gain", "distribution"
+    ],
+}
+
