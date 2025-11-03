@@ -12,9 +12,10 @@ const CSVUpload = ({ onUploadSuccess }) => {
   const [detectedBank, setDetectedBank] = useState(null);
   const [detectingBank, setDetectingBank] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [supportedBanks, setSupportedBanks] = useState([]);
   const fileInputRef = useRef(null);
 
-  // Fetch categories on mount
+  // Fetch categories and supported banks on mount
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -27,7 +28,21 @@ const CSVUpload = ({ onUploadSuccess }) => {
         console.error('Error fetching categories:', err);
       }
     };
+
+    const fetchSupportedBanks = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/transactions/supported-banks');
+        if (response.ok) {
+          const data = await response.json();
+          setSupportedBanks(data);
+        }
+      } catch (err) {
+        console.error('Error fetching supported banks:', err);
+      }
+    };
+
     fetchCategories();
+    fetchSupportedBanks();
   }, []);
 
   // Helper function to get category name by ID
@@ -437,9 +452,14 @@ const CSVUpload = ({ onUploadSuccess }) => {
         <h4>Supported Formats:</h4>
         <p>Automatically detects and imports transactions from:</p>
         <ul>
-          <li>Bank of America CSV exports</li>
+          {supportedBanks.length > 0 ? (
+            supportedBanks.map((bank, index) => (
+              <li key={index}>{bank} CSV exports</li>
+            ))
+          ) : (
+            <li>Loading supported formats...</li>
+          )}
         </ul>
-        <p className="format-note">The system will automatically detect your bank's format</p>
       </div>
     </div>
   );
