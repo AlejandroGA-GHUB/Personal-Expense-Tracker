@@ -26,6 +26,7 @@ class TransactionCreateFromCSV(TransactionBase):
     """
     source_file: str = Field(..., max_length=255, description="CSV File name which was parsed for this transaction")
     original_row: int = Field(..., gt=0, description="Row that this transaction resides in within its source_file")
+    extracted_keywords: Optional[str] = Field(None, max_length=500, description="Comma-separated keywords for learning")
 
 class TransactionUpdate(BaseModel):
     """
