@@ -6,10 +6,23 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import crud, schemas
-from ..utils.csv_parser import validate_csv_format, get_csv_preview, parse_csv_auto_detect
+from ..utils.csv_parser import validate_csv_format, get_csv_preview, parse_csv_auto_detect, BANK_FORMATS
 
 # Create router instance
 router = APIRouter()
+
+@router.get("/supported-banks")
+async def get_supported_banks():
+    """
+    Get list of all supported bank CSV formats
+    
+    Returns a list of bank names that the system can automatically detect and import.
+    This list updates automatically when new bank formats are added to the configuration.
+    
+    Example: GET /api/transactions/supported-banks
+    Response: ["Bank of America", "Apple Card"]
+    """
+    return [config.name for config in BANK_FORMATS.values()]
 
 @router.post("/", response_model=schemas.TransactionOut)
 async def create_transaction(
@@ -49,7 +62,7 @@ async def get_transactions(
     
     Example: GET /api/transactions/?skip=0&limit=50
     """
-    transactions = crud.get_transactions(db, skip=skip, limit=limit)
+    transactions = crud.get_transactions(db=db, skip=skip, limit=limit)
     return transactions
 
 @router.get("/filter", response_model=list[schemas.TransactionOut])

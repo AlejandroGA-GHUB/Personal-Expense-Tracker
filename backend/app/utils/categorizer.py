@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Tuple, List, Optional
 from sqlalchemy.orm import Session
 from ..models import Category, CategoryKeyword
+from ..database import get_db
 
 
 def extract_keywords(description: str, min_length: int = 3) -> List[str]:
@@ -62,7 +63,8 @@ def extract_keywords(description: str, min_length: int = 3) -> List[str]:
 def auto_categorize_transaction(
     db: Session,
     description: str,
-    amount: float
+    amount: float,
+    csv_category: str
 ) -> Tuple[int, List[str]]:
     """
     Auto-categorize a transaction based on learned keywords
@@ -85,6 +87,11 @@ def auto_categorize_transaction(
     # Extract keywords from description
     keywords = extract_keywords(description)
     
+    if csv_category != "":
+        matched_category = utilize_bank_categorization(db, csv_category)
+        if matched_category != 0:
+            return matched_category, keywords
+        
     if not keywords:
         # No keywords found, default to "Other"
         other_category = db.query(Category).filter(Category.name == "Other").first()
@@ -159,7 +166,103 @@ def auto_categorize_transaction(
     other_category = db.query(Category).filter(Category.name == "Other").first()
     return (other_category.id if other_category else 7), keywords
 
-
+def utilize_bank_categorization(db: Session, csv_category: str) -> int:
+    """
+    Try to match bank's CSV category to our system categories
+    
+    Args:
+        db: Database session
+        csv_category: Category name from CSV (e.g., "Grocery", "Restaurants", "Medical")
+    
+    Returns:
+        Category ID if match found, 0 if no match
+    """
+    if not csv_category or csv_category.strip() == "":
+        return 0
+    
+    csv_category_lower = csv_category.lower().strip()
+    
+    # Common bank category mappings to our system categories
+    category_mappings = {
+        # Food & Dining variations
+        "restaurants": "Food & Dining",
+        "restaurant": "Food & Dining",
+        "grocery": "Food & Dining",
+        "groceries": "Food & Dining",
+        "food": "Food & Dining",
+        "dining": "Food & Dining",
+        "coffee": "Food & Dining",
+        "bar": "Food & Dining",
+        "alcohol": "Food & Dining",
+        
+        # Transportation variations
+        "gas": "Transportation",
+        "fuel": "Transportation",
+        "parking": "Transportation",
+        "transit": "Transportation",
+        "uber": "Transportation",
+        "lyft": "Transportation",
+        "taxi": "Transportation",
+        
+        # Shopping variations
+        "shopping": "Shopping",
+        "retail": "Shopping",
+        "clothing": "Shopping",
+        "electronics": "Shopping",
+        
+        # Entertainment variations
+        "entertainment": "Entertainment",
+        "movies": "Entertainment",
+        "gaming": "Entertainment",
+        "streaming": "Entertainment",
+        "music": "Entertainment",
+        
+        # Bills & Utilities variations
+        "utilities": "Bills & Utilities",
+        "utility": "Bills & Utilities",
+        "insurance": "Bills & Utilities",
+        "medical": "Bills & Utilities",
+        "healthcare": "Bills & Utilities",
+        "health": "Bills & Utilities",
+        "phone": "Bills & Utilities",
+        "internet": "Bills & Utilities",
+        
+        # Income variations
+        "income": "Income",
+        "salary": "Income",
+        "payroll": "Income",
+        "deposit": "Income",
+        
+        # Other
+        "other": "Other",
+        "misc": "Other",
+        "miscellaneous": "Other"
+    }
+    
+    # Check if CSV category matches a known mapping
+    if csv_category_lower in category_mappings:
+        target_category_name = category_mappings[csv_category_lower]
+        category = db.query(Category).filter(Category.name == target_category_name).first()
+        if category:
+            return category.id
+    
+    # If no mapping found, try direct matching with our categories
+    categories = db.query(Category).all()
+    
+    for category in categories:
+        category_name_lower = category.name.lower()
+        
+        # Exact match (case-insensitive)
+        if category_name_lower == csv_category_lower:
+            return category.id
+        
+        # Check if CSV category contains our category name (partial match)
+        if category_name_lower in csv_category_lower:
+            return category.id
+    
+    # No match found
+    return 0
+        
 def learn_from_category_change(
     db: Session,
     transaction_id: int,

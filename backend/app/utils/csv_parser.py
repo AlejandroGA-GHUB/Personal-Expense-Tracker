@@ -25,9 +25,15 @@ class BankFormatConfig:
     # Parsing config
     date_format: str  # strftime format string
     skip_first_data_row: bool = False  # Skip first row after header
-    amount_is_negative_for_debits: bool = True  # If false, need to look for debit indicator
+    invert_amount_sign: bool = False  # If True, multiply amount by -1 (for banks with inverted signs)
+    # Debit/Credit indicator (for banks with all positive amounts)
+    type_col: Optional[int] = None  # Column index for transaction type (Debit/Credit)
+    debit_indicators: List[str] = None  # Values that indicate debit (e.g., ["Debit", "Withdrawal"])
+    credit_indicators: List[str] = None  # Values that indicate credit (e.g., ["Credit", "Deposit"])
     # Optional: custom validators
     row_validator: Optional[Callable[[List[str]], bool]] = None
+    csv_has_categories: bool = False # Don't check for the csv having categories
+    category_col: Optional[int] = None
 
 
 # Bank format configurations
@@ -40,13 +46,48 @@ BANK_FORMATS = {
         amount_col=2,
         date_format="%m/%d/%Y",
         skip_first_data_row=True,  # Skip beginning balance row
-        amount_is_negative_for_debits=True,
+        invert_amount_sign=False,  # Normal: expenses negative, income positive
+        type_col=None,
+        debit_indicators=None,
+        credit_indicators=None,
+        csv_has_categories=False,
+        category_col=None
     ),
-    # Easy to add more banks here:
-    # "chase": BankFormatConfig(...),
-    # "wells_fargo": BankFormatConfig(...),
+    "apple_card": BankFormatConfig(
+        name="Apple Card",
+        header_columns=["Transaction Date", "Clearing Date", "Description", "Merchant", "Category",
+                        "Type", "Amount (USD)", "Purchased By"],
+        date_col=0,
+        description_col=2,
+        amount_col=6,
+        date_format="%m/%d/%Y",
+        skip_first_data_row=False,
+        invert_amount_sign=True,  # Apple Card uses inverted signs (purchases positive, payments negative)
+        type_col=None,  # Not needed since we use invert_amount_sign
+        debit_indicators=None,
+        credit_indicators=None,
+        csv_has_categories=True,
+        category_col=4
+    ),
+    # Example for future bank with all positive amounts and Debit/Credit column:
+    # "example_bank": BankFormatConfig(
+    #     name="Example Bank",
+    #     header_columns=["Date", "Description", "Amount", "Type"],
+    #     date_col=0,
+    #     description_col=1,
+    #     amount_col=2,
+    #     date_format="%m/%d/%Y",
+    #     skip_first_data_row=False,
+    #     type_col=3,
+    #     debit_indicators=["Debit", "Withdrawal", "Payment"],
+    #     credit_indicators=["Credit", "Deposit", "Refund"],
+    #     invert_amount_sign=False,
+    #     csv_has_categories=False,
+    #     category_col=None
+    # ),
+    # Add more banks/card providers here:
+    
 }
-
 
 def detect_bank_format(csv_content: str) -> Optional[str]:
     """
@@ -211,9 +252,32 @@ def parse_csv_with_format(
                 cleaned_amount = amount_str.replace(',', '').replace('$', '').replace('"', '').strip()
                 amount = float(cleaned_amount)
                 
+                # Handle banks with all positive amounts and debit/credit indicator
+                if config.type_col is not None:
+                    transaction_type = row[config.type_col].strip().lower()
+                    
+                    # Check if it's a debit (expense) - make negative
+                    if config.debit_indicators and any(indicator.lower() in transaction_type for indicator in config.debit_indicators):
+                        amount = -abs(amount)  # Ensure negative
+                    # Check if it's a credit (income) - make positive
+                    elif config.credit_indicators and any(indicator.lower() in transaction_type for indicator in config.credit_indicators):
+                        amount = abs(amount)  # Ensure positive
+                    # Default: if no match, assume debit (expense)
+                    else:
+                        amount = -abs(amount)
+                
+                # Invert amount sign if bank uses inverted convention (applied after debit/credit logic)
+                if config.invert_amount_sign:
+                    amount = -amount
+                
+                # Extract category from CSV if available
+                csv_category_value = ""
+                if config.csv_has_categories and config.category_col is not None:
+                    csv_category_value = row[config.category_col].strip()
+                
                 # Auto-categorize transaction
                 if db:
-                    category_id, keywords = auto_categorize_transaction(db, description, amount)
+                    category_id, keywords = auto_categorize_transaction(db, description, amount, csv_category_value)
                     keywords_str = ','.join(keywords) if keywords else None
                 else:
                     # No database session, default to "Other" (ID 7)
