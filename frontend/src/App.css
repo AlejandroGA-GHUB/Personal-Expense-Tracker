@@ -54,6 +54,8 @@
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
   position: relative;
   overflow: hidden;
+  min-width: 160px;
+  text-align: center;
 }
 
 .app-nav button::before {
@@ -93,6 +95,16 @@
   flex: 1;
   padding: 1rem;
   margin-bottom: 1rem;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Dashboard placeholder styling */

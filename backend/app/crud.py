@@ -25,20 +25,14 @@ def get_transactions(db: Session, skip: int = 0, limit: int = 100) -> list[model
     return db.query(models.Transaction).offset(skip).limit(limit).all()
 
 def get_filtered_transactions(db: Session, category_ids: list[int] = None, transaction_type: str = None) -> list[models.Transaction]:
-    """Get all applicable transactions when filtering by multiple categories and/or transaction type - returns ALL matching results"""
+    """Get all applicable transactions when filtering by multiple categories - returns ALL matching results"""
     query = db.query(models.Transaction)
 
     # Filter by multiple categories (OR logic - match ANY selected category)
     if category_ids is not None and len(category_ids) > 0:
         query = query.filter(models.Transaction.category_id.in_(category_ids))
-
-    # Filter by transaction type (Expense or Income)
-    if transaction_type is not None:
-        if transaction_type == "Expense":
-            query = query.filter(models.Transaction.amount < 0)
-        elif transaction_type == "Income":
-            query = query.filter(models.Transaction.amount >= 0)  # Include $0.00 transactions
     
+    # All transactions are expenses (negative amounts only)
     return query.all()  # Return ALL matching transactions
 
 def get_transactions_by_category_id(db: Session, category_id: int) -> list[models.Transaction]:
@@ -49,13 +43,6 @@ def get_transactions_by_category_id(db: Session, category_id: int) -> list[model
 def get_transaction(db: Session, transaction_id: int) -> models.Transaction:
     """Get a single transaction by ID"""
     return db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
-
-def get_transactions_by_expense_or_income(db: Session, expense_or_income: str) -> list[models.Transaction]:
-    """Get all transactions by either expense or income, as decided by the user, with pagination"""
-    if expense_or_income == "Expense":
-        return db.query(models.Transaction).filter(models.Transaction.amount < 0).all() # Expense
-    else:
-        return db.query(models.Transaction).filter(models.Transaction.amount > 0).all() # Income
 
 def update_transaction(db: Session, transaction_id: int, transaction: schemas.TransactionUpdate) -> models.Transaction:
     """Update an existing transaction"""
@@ -112,7 +99,8 @@ def create_transactions_from_csv(db: Session, transactions: list[schemas.Transac
             category_id=transaction.category_id,
             source_file=transaction.source_file,
             original_row=transaction.original_row,
-            extracted_keywords=transaction.extracted_keywords
+            extracted_keywords=transaction.extracted_keywords,
+            csv_category_name=transaction.csv_category_name
         )
         db_transactions.append(db_transaction)
     

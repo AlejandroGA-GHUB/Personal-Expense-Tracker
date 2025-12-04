@@ -16,12 +16,10 @@ const Dashboard = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [filters, setFilters] = useState({
-    categories: [], // Array for multiple selection
-    transactionType: 'all'
+    categories: [] // Array for multiple selection
   });
   const [tempFilters, setTempFilters] = useState({
-    categories: [], // Array for multiple selection
-    transactionType: 'all'
+    categories: [] // Array for multiple selection
   });
   const [showCSVUpload, setShowCSVUpload] = useState(false);
   const [showFileInfo, setShowFileInfo] = useState(false);
@@ -73,27 +71,18 @@ const Dashboard = () => {
       
       // Check what filters are active
       const hasCategories = filters.categories.length > 0;
-      const hasType = filters.transactionType !== 'all';
       
-      if (hasCategories || hasType) {
-        // Use filter endpoint for any combination of filters
+      if (hasCategories) {
+        // Use filter endpoint for category filtering
         url = `http://localhost:8000/api/transactions/filter?`;
         
         // Add category_ids (multiple)
-        if (hasCategories) {
-          filters.categories.forEach(catId => {
-            url += `category_ids=${catId}&`;
-          });
-        }
+        filters.categories.forEach(catId => {
+          url += `category_ids=${catId}&`;
+        });
         
-        // Add transaction_type
-        if (hasType) {
-          const typeParam = filters.transactionType === 'expense' ? 'Expense' : 'Income';
-          url += `transaction_type=${typeParam}&`;
-        }
-        
-        // Remove trailing & or ?
-        url = url.replace(/[&?]$/, '');
+        // Remove trailing &
+        url = url.replace(/&$/, '');
       } else {
         // No filters: use main endpoint with pagination
         url = `http://localhost:8000/api/transactions/?skip=${skip}&limit=${TRANSACTIONS_PER_PAGE}`;
@@ -111,7 +100,7 @@ const Dashboard = () => {
         }
         
         // Only show "Load More" for unfiltered results (which use pagination)
-        setHasMore(!hasCategories && !hasType && data.length === TRANSACTIONS_PER_PAGE);
+        setHasMore(!hasCategories && data.length === TRANSACTIONS_PER_PAGE);
       } else {
         setError('Failed to load transactions');
       }
@@ -145,7 +134,6 @@ const Dashboard = () => {
   const getActiveFiltersCount = () => {
     let count = 0;
     if (filters.categories.length > 0) count += filters.categories.length;
-    if (filters.transactionType !== 'all') count++;
     return count;
   };
 
@@ -154,9 +142,6 @@ const Dashboard = () => {
     if (filters.categories.length > 0) {
       const categoryNames = filters.categories.map(catId => getCategoryName(catId)).join(', ');
       parts.push(`Categories: ${categoryNames}`);
-    }
-    if (filters.transactionType !== 'all') {
-      parts.push(`Type: ${filters.transactionType === 'expense' ? 'Expenses' : 'Income'}`);
     }
     return parts.length > 0 ? parts.join(' | ') : 'All Transactions';
   };
@@ -535,25 +520,12 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
-            
-            <div className="field-group">
-              <label htmlFor="filter-type">Filter by Type:</label>
-              <select
-                id="filter-type"
-                value={tempFilters.transactionType}
-                onChange={(e) => setTempFilters(prev => ({ ...prev, transactionType: e.target.value }))}
-              >
-                <option value="all">All Types</option>
-                <option value="expense">Expenses Only</option>
-                <option value="income">Income Only</option>
-              </select>
-            </div>
           </div>
           
           <div className="form-actions">
             <button 
               onClick={() => {
-                setTempFilters({ categories: [], transactionType: 'all' });
+                setTempFilters({ categories: [] });
                 setShowCategoryDropdown(false);
                 setShowFilters(false);
               }}
@@ -756,7 +728,7 @@ const Dashboard = () => {
       </div>
 
       {/* Load More Button */}
-      {filters.category === 'all' && filters.transactionType === 'all' && hasMore && !loading && (
+      {filters.categories.length === 0 && hasMore && !loading && (
         <div className="load-more-container">
           <button 
             onClick={loadMoreTransactions}

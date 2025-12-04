@@ -8,8 +8,9 @@ from datetime import datetime
 from typing import List, Dict, Any, Callable, Optional
 from dataclasses import dataclass
 from sqlalchemy.orm import Session
-from ..schemas import TransactionCreateFromCSV
+from ..schemas import TransactionCreateFromCSV, CategoryCreate
 from .categorizer import auto_categorize_transaction
+from .. import crud
 
 
 @dataclass
@@ -47,7 +48,7 @@ BANK_FORMATS = {
         date_format="%m/%d/%Y",
         skip_first_data_row=True,  # Skip beginning balance row
         invert_amount_sign=False,  # Normal: expenses negative, income positive
-        type_col=None,
+        type_col=None,             # Not needed since the amount data is displayed normally
         debit_indicators=None,
         credit_indicators=None,
         csv_has_categories=False,
@@ -63,7 +64,7 @@ BANK_FORMATS = {
         date_format="%m/%d/%Y",
         skip_first_data_row=False,
         invert_amount_sign=True,  # Apple Card uses inverted signs (purchases positive, payments negative)
-        type_col=None,  # Not needed since we use invert_amount_sign
+        type_col=None,            # Not needed since we use invert_amount_sign
         debit_indicators=None,
         credit_indicators=None,
         csv_has_categories=True,
@@ -270,14 +271,18 @@ def parse_csv_with_format(
                 if config.invert_amount_sign:
                     amount = -amount
                 
+                # Skip positive amounts (income) - we only track expenses
+                if amount >= 0:
+                    continue
+                
                 # Extract category from CSV if available
-                csv_category_value = ""
+                csv_category_name = ""
                 if config.csv_has_categories and config.category_col is not None:
-                    csv_category_value = row[config.category_col].strip()
+                    csv_category_name = row[config.category_col].strip()
                 
                 # Auto-categorize transaction
                 if db:
-                    category_id, keywords = auto_categorize_transaction(db, description, amount, csv_category_value)
+                    category_id, keywords = auto_categorize_transaction(db, description, amount, csv_category_name)
                     keywords_str = ','.join(keywords) if keywords else None
                 else:
                     # No database session, default to "Other" (ID 7)
@@ -292,7 +297,8 @@ def parse_csv_with_format(
                     category_id=category_id,
                     extracted_keywords=keywords_str,
                     source_file=filename,
-                    original_row=row_number
+                    original_row=row_number,
+                    csv_category_name=csv_category_name if csv_category_name != "" else "N/A"
                 )
                 
                 transactions.append(transaction)
@@ -400,6 +406,28 @@ def validate_csv_format(csv_content: str) -> Dict[str, Any]:
     }
 
 
+def create_csv_categories(
+    category_names: list[str],
+    db: Session
+) -> Dict[str, int]:
+    """
+    Create categories from CSV names and return name->ID mapping
+    
+    Args:
+        category_names: Set of category names from CSV
+        db: Database session
+        
+    Returns:
+        Dict mapping category name to category ID
+    """
+    mapping = {}
+    for category_name in category_names:
+        category_schema = CategoryCreate(name=category_name, description="")
+        category = crud.create_category(db=db, category=category_schema)
+        mapping[category_name] = category.id
+    return mapping
+
+
 def get_csv_preview(
     csv_content: str, 
     filename: str, 
@@ -432,7 +460,8 @@ def get_csv_preview(
             "category_id": transaction.category_id,
             "source_file": transaction.source_file,
             "original_row": transaction.original_row,
-            "preview_index": i + 1
+            "preview_index": i + 1,
+            "csv_category_name": transaction.csv_category_name
         })
     
     return preview

@@ -11,8 +11,8 @@ class TransactionBase(BaseModel):
     Schema for creating a new transaction via API.
     This validates incoming POST request data.
     """
-    description: str = Field(..., max_length=255, description="What was purchased/received")
-    amount: float = Field(..., ne=0, description="Dollar amount (negative=expense, positive=income)")
+    description: str = Field(..., max_length=255, description="What was purchased")
+    amount: float = Field(..., description="Dollar amount (negative for expenses)")
     date: datetime = Field(..., description="When the transaction occurred")
     category_id: Optional[int] = Field(None, description="Which category this belongs to (optional)")
     
@@ -27,6 +27,7 @@ class TransactionCreateFromCSV(TransactionBase):
     source_file: str = Field(..., max_length=255, description="CSV File name which was parsed for this transaction")
     original_row: int = Field(..., gt=0, description="Row that this transaction resides in within its source_file")
     extracted_keywords: Optional[str] = Field(None, max_length=500, description="Comma-separated keywords for learning")
+    csv_category_name: Optional[str] = Field(None, max_length=500, description="Original CSV category name")
 
 class TransactionUpdate(BaseModel):
     """

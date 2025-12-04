@@ -74,6 +74,7 @@ class Transaction(Base):
     # CSV upload tracking (for audit trail)
     source_file = Column(String(255), nullable=True)  # "chase_statement_jan2024.csv"
     original_row = Column(Integer, nullable=True)  # Row 15 in the original CSV
+    csv_category_name = Column(String(255), nullable=True) # Original CSV category name for user reference and preview use
     
     # Auto-managed timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -85,16 +86,6 @@ class Transaction(Base):
     
     # === HELPER PROPERTIES ===
     # These are computed properties, not stored in database
-    
-    @property
-    def is_income(self):
-        """Returns True if this is income (positive amount)"""
-        return self.amount > 0
-    
-    @property
-    def is_expense(self):
-        """Returns True if this is an expense (negative amount)"""
-        return self.amount < 0
     
     @property
     def absolute_amount(self):
@@ -139,13 +130,6 @@ DEFAULT_CATEGORIES = [
         "description": "Rent, electricity, internet, phone", 
         "color": "#FFEAA7",  # Yellow
         "icon": "📋", 
-        "is_default": True
-    },
-    {
-        "name": "Income", 
-        "description": "Salary, freelance, investments", 
-        "color": "#98FB98",  # Light Green
-        "icon": "💰", 
         "is_default": True
     },
     {
@@ -271,20 +255,6 @@ DEFAULT_KEYWORDS = {
         "liberty mutual", "nationwide", "usaa",
         # Subscriptions
         "subscription", "membership", "recurring", "monthly", "annual"
-    ],
-    
-    "Income": [
-        # Employment
-        "payroll", "salary", "wage", "paycheck", "direct deposit", "employer",
-        "bonus", "commission", "tip", "tips", "income", "payment received",
-        # Freelance & Gig
-        "freelance", "consulting", "contractor", "upwork", "fiverr", "venmo",
-        "paypal", "zelle", "cash app", "square",
-        # Returns & Refunds
-        "refund", "reimbursement", "return", "credit", "cashback", "cash back",
-        "rebate", "reward",
-        # Investments
-        "dividend", "interest", "capital gain", "distribution"
     ],
 }
 

@@ -64,7 +64,7 @@ def auto_categorize_transaction(
     db: Session,
     description: str,
     amount: float,
-    csv_category: str
+    csv_category_name: str
 ) -> Tuple[int, List[str]]:
     """
     Auto-categorize a transaction based on learned keywords
@@ -87,34 +87,15 @@ def auto_categorize_transaction(
     # Extract keywords from description
     keywords = extract_keywords(description)
     
-    if csv_category != "":
-        matched_category = utilize_bank_categorization(db, csv_category)
+    if csv_category_name != "":
+        matched_category = utilize_bank_categorization(db, csv_category_name)
         if matched_category != 0:
             return matched_category, keywords
         
     if not keywords:
         # No keywords found, default to "Other"
         other_category = db.query(Category).filter(Category.name == "Other").first()
-        return (other_category.id if other_category else 7), []
-    
-    # Special rule: Positive amounts are likely Income
-    if amount > 0:
-        income_category = db.query(Category).filter(Category.name == "Income").first()
-        if income_category:
-            # Check if any keywords suggest income
-            income_keywords = db.query(CategoryKeyword).filter(
-                CategoryKeyword.category_id == income_category.id,
-                CategoryKeyword.keyword.in_(keywords)
-            ).all()
-            
-            # If we have income keyword matches OR amount is positive with generic keywords
-            if income_keywords:
-                return income_category.id, keywords
-            
-            # Even without keyword match, if amount > 0 and keywords like "deposit", assume income
-            income_indicators = ['deposit', 'payroll', 'salary', 'refund', 'credit', 'payment']
-            if any(kw in income_indicators for kw in keywords):
-                return income_category.id, keywords
+        return (other_category.id if other_category else 6), []
     
     # Query all matching keywords from database
     matching_keywords = db.query(CategoryKeyword).filter(
@@ -238,15 +219,8 @@ def utilize_bank_categorization(db: Session, csv_category: str) -> int:
         "misc": "Other",
         "miscellaneous": "Other"
     }
-    
-    # Check if CSV category matches a known mapping
-    if csv_category_lower in category_mappings:
-        target_category_name = category_mappings[csv_category_lower]
-        category = db.query(Category).filter(Category.name == target_category_name).first()
-        if category:
-            return category.id
-    
-    # If no mapping found, try direct matching with our categories
+
+    # Try direct matching with our categories
     categories = db.query(Category).all()
     
     for category in categories:
@@ -259,10 +233,17 @@ def utilize_bank_categorization(db: Session, csv_category: str) -> int:
         # Check if CSV category contains our category name (partial match)
         if category_name_lower in csv_category_lower:
             return category.id
-    
+
+    # If no direct match found, check if CSV category matches a known mapping
+    if csv_category_lower in category_mappings:
+        target_category_name = category_mappings[csv_category_lower]
+        category = db.query(Category).filter(Category.name == target_category_name).first()
+        if category:
+            return category.id
+        
     # No match found
     return 0
-        
+    
 def learn_from_category_change(
     db: Session,
     transaction_id: int,

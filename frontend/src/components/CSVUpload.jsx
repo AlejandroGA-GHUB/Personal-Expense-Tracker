@@ -13,6 +13,8 @@ const CSVUpload = ({ onUploadSuccess }) => {
   const [detectingBank, setDetectingBank] = useState(false);
   const [categories, setCategories] = useState([]);
   const [supportedBanks, setSupportedBanks] = useState([]);
+  const [appliedCategories, setAppliedCategories] = useState(new Set());
+  const [existingCategoryNames, setExistingCategoryNames] = useState(new Set());
   const fileInputRef = useRef(null);
 
   // Fetch categories and supported banks on mount
@@ -23,6 +25,8 @@ const CSVUpload = ({ onUploadSuccess }) => {
         if (response.ok) {
           const data = await response.json();
           setCategories(data);
+          // Extract category names for duplicate checking
+          setExistingCategoryNames(new Set(data.map(cat => cat.name)));
         }
       } catch (err) {
         console.error('Error fetching categories:', err);
@@ -55,6 +59,21 @@ const CSVUpload = ({ onUploadSuccess }) => {
   const getCategoryColor = (categoryId) => {
     const category = categories.find(cat => cat.id === categoryId);
     return category ? category.color : '#6c757d';
+  };
+
+  // Handle applying CSV category
+  const handleApplyCategory = (categoryName) => {
+    if (categoryName === 'N/A') return; // Don't allow applying N/A
+    
+    setAppliedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryName)) {
+        newSet.delete(categoryName);
+      } else {
+        newSet.add(categoryName);
+      }
+      return newSet;
+    });
   };
 
   // Detect bank format from file
@@ -185,10 +204,12 @@ const CSVUpload = ({ onUploadSuccess }) => {
     setError('');
     setUploadResult(null);
 
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-
     try {
+      // Upload CSV with applied categories
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('applied_categories', JSON.stringify(Array.from(appliedCategories)));
+
       const response = await fetch('http://localhost:8000/api/transactions/upload-csv', {
         method: 'POST',
         body: formData,
@@ -198,15 +219,14 @@ const CSVUpload = ({ onUploadSuccess }) => {
 
       if (response.ok && data.success) {
         setUploadResult(data);
-        setPreviewData(null); // Clear preview after successful upload
-        // Clear the file selection after successful upload
+        setPreviewData(null);
         setSelectedFile(null);
+        setAppliedCategories(new Set()); // Clear applied categories
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
-        // Notify parent component of successful upload
         if (onUploadSuccess) {
-          setTimeout(() => onUploadSuccess(), 2000); // Give user time to see success message
+          setTimeout(() => onUploadSuccess(), 2000);
         }
       } else {
         setError(data.detail || 'Failed to upload CSV file');
@@ -228,6 +248,7 @@ const CSVUpload = ({ onUploadSuccess }) => {
     setDragActive(false);
     setDetectedBank(null);
     setDetectingBank(false);
+    setAppliedCategories(new Set());
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -390,7 +411,8 @@ const CSVUpload = ({ onUploadSuccess }) => {
                     <span>Date</span>
                     <span>Description</span>
                     <span>Amount</span>
-                    <span>Category</span>
+                    <span>AI Category</span>
+                    <span>CSV Original</span>
                   </div>
                   {previewData.preview_transactions.map((transaction, index) => (
                     <div key={index} className="preview-row">
@@ -406,6 +428,37 @@ const CSVUpload = ({ onUploadSuccess }) => {
                         >
                           {getCategoryName(transaction.category_id)}
                         </span>
+                      </span>
+                      <span className="preview-csv-category">
+                        <div className="csv-category-wrapper">
+                          <span className={`csv-category-badge ${!transaction.csv_category_name ? 'empty' : ''}`}>
+                            {transaction.csv_category_name || '-'}
+                          </span>
+                          {transaction.csv_category_name && transaction.csv_category_name !== 'N/A' && (
+                            <button
+                              className={`apply-btn ${
+                                appliedCategories.has(transaction.csv_category_name) ? 'applied' : ''
+                              } ${
+                                existingCategoryNames.has(transaction.csv_category_name) ? 'disabled' : ''
+                              }`}
+                              onClick={() => handleApplyCategory(transaction.csv_category_name)}
+                              disabled={existingCategoryNames.has(transaction.csv_category_name)}
+                              title={
+                                existingCategoryNames.has(transaction.csv_category_name)
+                                  ? 'Category already exists'
+                                  : appliedCategories.has(transaction.csv_category_name)
+                                  ? 'Click to unapply'
+                                  : 'Apply this category'
+                              }
+                            >
+                              {existingCategoryNames.has(transaction.csv_category_name)
+                                ? 'Exists'
+                                : appliedCategories.has(transaction.csv_category_name)
+                                ? '✓ Applied'
+                                : 'Apply'}
+                            </button>
+                          )}
+                        </div>
                       </span>
                     </div>
                   ))}
