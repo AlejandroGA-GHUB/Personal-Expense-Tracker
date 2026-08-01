@@ -18,7 +18,10 @@ class TransactionBase(BaseModel):
     
 class TransactionCreate(TransactionBase):
     """Schema for when creating a transaction manually, say one done with cash"""
-    pass
+    # The app tracks expenses only, so a positive amount is rejected rather than
+    # silently stored as income. Constrained here rather than on TransactionBase
+    # so TransactionOut can still serialize any legacy rows.
+    amount: float = Field(..., lt=0, description="Dollar amount, negative (expenses only)")
 
 class TransactionCreateFromCSV(TransactionBase):
     """
@@ -28,13 +31,19 @@ class TransactionCreateFromCSV(TransactionBase):
     original_row: int = Field(..., gt=0, description="Row that this transaction resides in within its source_file")
     extracted_keywords: Optional[str] = Field(None, max_length=500, description="Comma-separated keywords for learning")
     csv_category_name: Optional[str] = Field(None, max_length=500, description="Original CSV category name")
+    # Preview-only hint: a category the LLM proposed that doesn't exist yet.
+    # Never persisted - it exists so the user can approve it during upload.
+    llm_suggested_category: Optional[str] = Field(None, max_length=100, description="New category proposed by the local LLM")
+    # Preview-only: which stage of the cascade picked the category, so the UI can
+    # credit the right one instead of calling every guess "AI". See categorizer.SOURCE_*.
+    categorization_source: Optional[str] = Field(None, max_length=50, description="Which cascade stage chose the category")
 
 class TransactionUpdate(BaseModel):
     """
     For updating existing transactions - all fields optional
     """
     description: Optional[str] = Field(None, max_length=255)
-    amount: Optional[float] = Field(None, ne=0)
+    amount: Optional[float] = Field(None, lt=0, description="Dollar amount, negative (expenses only)")
     date: Optional[datetime] = None
     category_id: Optional[int] = None
 

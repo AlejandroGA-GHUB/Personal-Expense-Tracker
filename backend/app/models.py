@@ -43,7 +43,6 @@ class CategoryKeyword(Base):
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False, index=True)
     keyword = Column(String(100), nullable=False, index=True)
     weight = Column(Integer, default=1, nullable=False)
-    is_default = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -61,7 +60,7 @@ class Transaction(Base):
     
     # Core transaction data (usually from CSV upload)
     description = Column(String(255), nullable=False)  # "Starbucks Coffee"
-    amount = Column(Float, nullable=False)  # -4.50 (negative=expense, positive=income)
+    amount = Column(Float, nullable=False)  # -4.50 (always negative; this app tracks expenses only)
     date = Column(DateTime, nullable=False, index=True)  # When it happened
     
     # Links to category (foreign key)
@@ -144,7 +143,6 @@ DEFAULT_CATEGORIES = [
 
 # === DEFAULT CATEGORY KEYWORDS ===
 # Comprehensive keyword mappings for smart auto-categorization
-# Special rules: Positive amounts default to Income category
 
 DEFAULT_KEYWORDS = {
     "Food & Dining": [
@@ -180,7 +178,10 @@ DEFAULT_KEYWORDS = {
         "transit", "metro", "subway", "train", "bus", "rail", "mta", "bart", "cta",
         "septa", "wmata", "mbta", "metrocard", "clipper", "orca", "charlie card",
         # Parking & Tolls
-        "parking", "park", "toll", "ezpass", "fastrak", "sunpass", "ipass",
+        # NOTE: no bare "park" - "parking" covers the real case, while "park" also
+        # matches street addresses ("APPLE PARK WAY", "PARK AVE") and filed Apple
+        # subscriptions under Transportation.
+        "parking", "toll", "ezpass", "fastrak", "sunpass", "ipass",
         # Auto Services  
         "gas", "fuel", "auto", "car wash", "oil change", "jiffy lube", "valvoline",
         "pep boys", "autozone", "advance auto", "napa", "mechanic", "tire", "repair",

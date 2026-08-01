@@ -13,8 +13,11 @@ import sqlite3
 # === DISTRIBUTED DATABASE CONFIGURATION ===
 # Each user has their own local SQLite file - no authentication needed
 
-# Database file location (in user's current directory)
-DATABASE_URL = "sqlite:///./finance.db"
+# Database file location (in user's current directory).
+# Overridable so the test suite can point the whole app at a throwaway file - without
+# it, importing the app would bind the engine to the real finance.db and any test that
+# reached startup would write to it.
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./finance.db")
 
 # Create SQLAlchemy engine for local SQLite
 engine = create_engine(
@@ -77,17 +80,19 @@ def init_database():
     # Create tables
     create_tables()
     
-    # Add default categories and keywords if database is empty
+    # Add default categories if database is empty. DEFAULT_KEYWORDS is deliberately
+    # NOT copied in here - it stays a constant in models.py and is consulted directly
+    # as the last resort in the cascade. Seeding it would mix a generic hardcoded
+    # guess into the same table as the user's own learned mappings.
     from .models import Category, DEFAULT_CATEGORIES
-    from .utils.categorizer import seed_default_keywords
-    
+
     db = SessionLocal()
     try:
         # Check if categories already exist
         existing_categories = db.query(Category).count()
         
         if existing_categories == 0:
-            print("🌱 Initializing database with default categories...")
+            print("Initializing database with default categories...")
             
             # Add default categories
             for category_data in DEFAULT_CATEGORIES:
@@ -95,17 +100,13 @@ def init_database():
                 db.add(category)
             
             db.commit()
-            print(f"✅ Added {len(DEFAULT_CATEGORIES)} default categories")
-            
-            # Seed default keywords for auto-categorization
-            print("🔑 Seeding default keywords for auto-categorization...")
-            seed_default_keywords(db)
-            
+            print(f"Added {len(DEFAULT_CATEGORIES)} default categories")
+
         else:
-            print(f"📊 Database already initialized with {existing_categories} categories")
+            print(f"Database already initialized with {existing_categories} categories")
             
     except Exception as e:
-        print(f"❌ Error initializing database: {e}")
+        print(f"Error initializing database: {e}")
         db.rollback()
     finally:
         db.close()

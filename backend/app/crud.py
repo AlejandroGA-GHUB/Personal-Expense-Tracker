@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from . import models, schemas
-from .utils.categorizer import learn_from_category_change
+from .utils.categorizer import learn_from_category_change, learn_from_import
 
 def create_transaction_manually(db: Session, transaction: schemas.TransactionCreate) -> models.Transaction:
     """Create a new transaction, category_id optional"""
@@ -76,6 +76,44 @@ def get_categories(db: Session) -> list[models.Category]:
     """Get all categories"""
     return db.query(models.Category).all()
 
+def get_category(db: Session, category_id: int) -> models.Category | None:
+    """Get a single category by ID, or None if it doesn't exist"""
+    return db.query(models.Category).filter(models.Category.id == category_id).first()
+
+def get_category_by_name(db: Session, name: str) -> models.Category | None:
+    """Get a single category by its (unique) name, or None if it doesn't exist"""
+    return db.query(models.Category).filter(models.Category.name == name).first()
+
+def delete_category(db: Session, category: models.Category) -> int:
+    """
+    Delete a category, moving anything filed under it into "Other".
+
+    Transactions are never destroyed with the category - they're reassigned, so
+    deleting a category the user regrets creating costs them no data. This has to
+    happen before the delete anyway: foreign_keys=ON means SQLite would reject the
+    delete while rows still point at it.
+
+    The category's learned keywords go with it (the relationship cascades). That's
+    intentional - those mappings only ever meant "this merchant belongs in the
+    category you just removed", so carrying them over to "Other" would teach the
+    system to file future transactions there.
+
+    Returns:
+        Number of transactions moved to "Other".
+    """
+    other_category = get_category_by_name(db, "Other")
+    # None only if "Other" was itself removed somehow; leaving the rows
+    # uncategorized still beats losing them.
+    other_category_id = other_category.id if other_category else None
+
+    moved = db.query(models.Transaction).filter(
+        models.Transaction.category_id == category.id
+    ).update({models.Transaction.category_id: other_category_id}, synchronize_session=False)
+
+    db.delete(category)
+    db.commit()
+    return moved
+
 def create_category(db: Session, category: schemas.CategoryCreate) -> models.Category:
     """Create a category, description optional"""
     db_category = models.Category(
@@ -111,5 +149,9 @@ def create_transactions_from_csv(db: Session, transactions: list[schemas.Transac
     # Refresh all transactions to get their IDs
     for db_transaction in db_transactions:
         db.refresh(db_transaction)
-    
+
+    # Record what the LLM worked out, now that the rows are persisted and can act
+    # as the corpus. Re-importing this file becomes a stage-1 hit with no model calls.
+    learn_from_import(db, transactions)
+
     return db_transactions

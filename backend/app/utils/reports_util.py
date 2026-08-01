@@ -1,68 +1,87 @@
-from fastapi import Depends
+"""
+Shared query helpers for the report routes
+"""
+from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
-from ..database import get_db
+
 from .. import models
 
-def monthly_spending_category_util(
-    specified_transactions: list[models.Transaction],
-    db: Session
+# Helper function to narrow a transaction query down to a year, and optionally a single month
+def spending_period_filter(query, year: int = None, month: int = None):
+    """
+    Apply a year/month filter to an existing transaction query
+
+    Returns:
+    - The same query with the period filters applied, unchanged if both are None
+    - Shared by the total and the top category so both are guaranteed to cover the exact
+      same period
+    """
+
+    if year is not None:
+        query = query.filter(extract('year', models.Transaction.date) == year)
+    if month is not None:
+        query = query.filter(extract('month', models.Transaction.date) == month)
+
+    return query
+
+# Helper function to sum all spending in a period with a single aggregate query
+def total_spending_for_period(
+    db: Session,
+    year: int = None,
+    month: int = None
+) -> float | None:
+    """
+    Get the total spent in a period
+
+    Returns:
+    - The summed spending for the period
+    - None (not 0.0) when the period holds no transactions, so callers can tell an empty
+      period apart from a real total
+    """
+
+    # Builds the SUM query first, then narrows it to the requested period
+    query = spending_period_filter(
+        db.query(func.sum(func.abs(models.Transaction.amount))), year, month
+    )
+
+    return query.scalar()
+
+# Helper function to find the single highest spending category in a period
+def highest_spending_category(
+    db: Session,
+    year: int = None,
+    month: int = None
 ) -> list:
+    """
+    Get the top spending category for a period
 
-    category_to_spending = {}
-    highest_spent_category = [0, 0]
+    Returns:
+    - [category name, total spent] for the highest spending category
+    - An empty list when nothing in the period carries a category, since the inner join drops
+      uncategorized transactions while they still count toward the period total
+    """
 
-    for current_transaction in specified_transactions:
-        update_category_to_spending(current_transaction, category_to_spending, highest_spent_category)
-    
-    # Check if any category was found
-    if highest_spent_category[0] == 0:
-        return []
-    
-    current_category = db.query(models.Category).get(highest_spent_category[0])
-    if not current_category:
-        return []
+    total = func.sum(func.abs(models.Transaction.amount))
 
-    return [current_category.name, highest_spent_category[1]]
+    # Joins categories to their transactions so the sum can be grouped per category
+    query = db.query(
+        models.Category.name,
+        total.label('total_spending')
+    ).join(
+        models.Transaction,
+        models.Category.id == models.Transaction.category_id
+    )
 
+    query = spending_period_filter(query, year, month)
 
-def yearly_spending_category_util(
-    specified_transactions: list[list[models.Transaction]],
-    db: Session
-) -> list:
-    category_to_spending = {}
-    highest_spent_category = [0, 0]
+    # Takes the highest total, the category id breaks ties so the winner stays deterministic
+    # instead of SQLite being free to return either row
+    top = query.group_by(
+        models.Category.id,
+        models.Category.name
+    ).order_by(
+        total.desc(),
+        models.Category.id.asc()
+    ).first()
 
-    for monthly_transactions in specified_transactions:
-        for current_transaction in monthly_transactions:
-            update_category_to_spending(current_transaction, category_to_spending, highest_spent_category)
-    
-    # Check if any category was found
-    if highest_spent_category[0] == 0:
-        return []
-    
-    current_category = db.query(models.Category).get(highest_spent_category[0])
-    if not current_category:
-        return []
-
-    return [current_category.name, highest_spent_category[1]]
-
-# Helper function
-def update_category_to_spending(
-    current_transaction: models.Transaction, 
-    category_to_spending: dict, highest_spent_category: list
-):
-    # Skip transactions without a category
-    if current_transaction.category_id is None:
-        return
-    
-    if current_transaction.category_id in category_to_spending:
-        category_to_spending[current_transaction.category_id] += abs(current_transaction.amount)
-        if category_to_spending[current_transaction.category_id] > highest_spent_category[1]:
-            highest_spent_category[1] = category_to_spending[current_transaction.category_id]
-            highest_spent_category[0] = current_transaction.category_id
-    else:
-        category_to_spending[current_transaction.category_id] = abs(current_transaction.amount)
-        if category_to_spending[current_transaction.category_id] > highest_spent_category[1]:
-            highest_spent_category[1] = category_to_spending[current_transaction.category_id]
-            highest_spent_category[0] = current_transaction.category_id
-       
+    return [top[0], top[1]] if top else []

@@ -90,6 +90,83 @@ BANK_FORMATS = {
     
 }
 
+# Words that mark where a street address starts. Only consulted when a description
+# has no digit to cut at, e.g. "APPLE.COM/BILL ONE APPLE PARK WAY CUPERTINO".
+STREET_SUFFIXES = {
+    "ave", "avenue", "st", "street", "rd", "road", "blvd", "boulevard",
+    "dr", "drive", "ln", "lane", "way", "pkwy", "parkway", "hwy", "highway",
+    "ct", "court", "pl", "place", "plaza", "sq", "square", "ter", "terrace",
+    "suite", "ste", "unit", "apt", "floor",
+}
+
+
+def strip_merchant_address(description: str) -> str:
+    """
+    Cut a description down to the merchant, dropping the location tail behind it.
+
+    Both supported banks append junk to the merchant name, in different shapes:
+
+    Examples below use fake data - invented merchants and addresses that only
+    reproduce the shape of a real statement row.
+
+        NORTHWIND MKT* ZQ4KP7VX8800 1420 MAPLE AVENUE RIVERTON 55555 ZZ USA
+        |-- merchant --||------------------- tail --------------------|
+
+        GLOBEX SHOP*RB6T 02/14 PURCHASE XXXXX00000 ZZ
+        |- merchant -||--------- tail ----------|
+
+    Those tail tokens are what poisoned keyword learning. On a real Apple Card
+    statement 'usa' landed in 82 of 83 rows and 'riverton' in 10 - and because
+    'riverton' correlated perfectly with Globex, it got learned as if it were the
+    merchant, then filed a Riverton *restaurant* under Shopping. Cutting the tail
+    off at the source removes the whole class rather than blacklisting cities
+    one at a time.
+
+    It also fixes a subtler misread. One row is
+    "GLOBEX SHOP*RB6T CEDAR AVE N GLBX.COM/BILL55555 ZZ USA" - the local
+    LLM saw "BILL" and answered Bills & Utilities while every other Globex row got
+    Shopping. Trimming to "GLOBEX" removes the thing it tripped over.
+
+    The merchant always comes first and the tail always starts at a number (store
+    id, transaction ref, date, or street number), so the cut is the first token
+    containing a digit - or failing that, the first street suffix. The search
+    starts at the second token so merchants that lead with a number survive
+    ("599 LEXINGTON, LLC", "7-ELEVEN", "24 HOUR FITNESS").
+
+    Applied to every bank rather than gated per format: the rule keys off a
+    numeric boundary that both real formats share, and a bank whose descriptions
+    are merchant-only is simply left unchanged.
+
+    Known limit: a bare "MERCHANT CITY" with no numeric separator can't be cut,
+    because nothing distinguishes "NORTHWIND RIVERTON" from "JOES GARAGE". A city
+    list would false-positive on real names like "Manhattan Bagel". Such tokens
+    fall through to `_is_learnable`, which rejects them once they've been seen
+    with a second category.
+
+    Banks also glue reference numbers straight onto the merchant name, so a token
+    that starts with letters keeps that prefix rather than being dropped whole:
+    "AIRLINE800" -> "AIRLINE". Discarding it entirely cost the local LLM the one
+    word identifying a flight booking as a flight, and it answered
+    Entertainment for "TRAVELCO*BLUEJET" where the untrimmed description got
+    Transportation.
+    """
+    tokens = description.split()
+    if len(tokens) < 2:
+        return description
+
+    for index, token in enumerate(tokens[1:], start=1):
+        digit_at = next((i for i, c in enumerate(token) if c.isdigit()), None)
+        if digit_at is not None:
+            # Keep any leading letters ("AIRLINE800"), drop a pure number ("041237").
+            prefix = token[:digit_at].strip('.,#*-')
+            kept = tokens[:index] + ([prefix] if prefix else [])
+            return ' '.join(kept)
+        if token.strip('.,#*').lower() in STREET_SUFFIXES:
+            return ' '.join(tokens[:index])
+
+    return description
+
+
 def detect_bank_format(csv_content: str) -> Optional[str]:
     """
     Auto-detect which bank format the CSV file matches by scanning for known header patterns
@@ -201,7 +278,11 @@ def parse_csv_with_format(
     config = BANK_FORMATS[bank_format_key]
     transactions = []
     csv_reader = csv.reader(io.StringIO(csv_content))
-    
+
+    # Shared across every row of this file so repeat merchants cost one LLM call.
+    # Unused unless the LLM stage is enabled (see app/config.py).
+    llm_cache = {}
+
     header_found = False
     first_data_row_skipped = False
     row_number = 0
@@ -281,14 +362,22 @@ def parse_csv_with_format(
                     csv_category_name = row[config.category_col].strip()
                 
                 # Auto-categorize transaction
+                suggested_category = None
+                categorization_source = None
                 if db:
-                    category_id, keywords = auto_categorize_transaction(db, description, amount, csv_category_name)
+                    # Categorize and learn from the merchant alone. The full
+                    # description is still what gets stored and shown - only the
+                    # keyword/LLM view of it is trimmed.
+                    merchant = strip_merchant_address(description)
+                    category_id, keywords, suggested_category, categorization_source = auto_categorize_transaction(
+                        db, merchant, amount, csv_category_name, llm_cache
+                    )
                     keywords_str = ','.join(keywords) if keywords else None
                 else:
-                    # No database session, default to "Other" (ID 7)
-                    category_id = 7
+                    # No database session, so no categories to choose from - leave it unset
+                    category_id = None
                     keywords_str = None
-                
+
                 # Create transaction
                 transaction = TransactionCreateFromCSV(
                     description=description,
@@ -298,7 +387,9 @@ def parse_csv_with_format(
                     extracted_keywords=keywords_str,
                     source_file=filename,
                     original_row=row_number,
-                    csv_category_name=csv_category_name if csv_category_name != "" else "N/A"
+                    csv_category_name=csv_category_name if csv_category_name != "" else "N/A",
+                    llm_suggested_category=suggested_category,
+                    categorization_source=categorization_source
                 )
                 
                 transactions.append(transaction)
@@ -422,8 +513,13 @@ def create_csv_categories(
     """
     mapping = {}
     for category_name in category_names:
-        category_schema = CategoryCreate(name=category_name, description="")
-        category = crud.create_category(db=db, category=category_schema)
+        # Reuse an existing category if one already has this name. Category.name is
+        # UNIQUE, so blindly inserting a duplicate would raise an IntegrityError and
+        # fail the whole upload. Get-or-create keeps re-applying the same name safe.
+        category = crud.get_category_by_name(db=db, name=category_name)
+        if category is None:
+            category_schema = CategoryCreate(name=category_name, description="")
+            category = crud.create_category(db=db, category=category_schema)
         mapping[category_name] = category.id
     return mapping
 
@@ -461,7 +557,9 @@ def get_csv_preview(
             "source_file": transaction.source_file,
             "original_row": transaction.original_row,
             "preview_index": i + 1,
-            "csv_category_name": transaction.csv_category_name
+            "csv_category_name": transaction.csv_category_name,
+            "llm_suggested_category": transaction.llm_suggested_category,
+            "categorization_source": transaction.categorization_source
         })
     
     return preview

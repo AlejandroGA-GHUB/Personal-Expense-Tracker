@@ -135,6 +135,20 @@
   font-size: 0.9rem;
 }
 
+/* Smooth chart transition wrapper */
+.chart-transition-wrapper {
+  transition: opacity 200ms ease-in-out;
+  will-change: opacity;
+}
+.chart-transition-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.chart-transition-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* Time Filter Buttons */
 .time-filter {
   display: flex;

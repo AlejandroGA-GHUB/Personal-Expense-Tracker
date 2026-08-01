@@ -1,6 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
 import './CSVUpload.css';
 
+// What to call each stage of the backend's categorization cascade
+// (see categorizer.SOURCE_*). Sources missing from this map get no credit in the
+// preview: 'bank_category' means the bank labelled the row itself - its label is
+// already shown in the CSV Original column - and 'none' means nothing matched.
+// Calling either of those an AI categorization was the misleading part.
+const SOURCE_LABELS = {
+  learned_keywords: 'Learned Mapping',
+  llm: 'AI Mapping',
+  builtin_keywords: 'Educated System Mapping'
+};
+
+const SOURCE_TOOLTIPS = {
+  learned_keywords: 'Matched a keyword mapping this app learned from your past corrections',
+  llm: 'Chosen by the local AI model',
+  builtin_keywords: "Matched the app's built-in keyword list - no AI was called for this row",
+  bank_category: "Taken from the bank's own category on this row - no AI was called",
+  none: 'Nothing matched, so this row imports as Other'
+};
+
 const CSVUpload = ({ onUploadSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
@@ -411,23 +430,73 @@ const CSVUpload = ({ onUploadSuccess }) => {
                     <span>Date</span>
                     <span>Description</span>
                     <span>Amount</span>
-                    <span>AI Category</span>
+                    <span>Auto-Category</span>
                     <span>CSV Original</span>
                   </div>
                   {previewData.preview_transactions.map((transaction, index) => (
                     <div key={index} className="preview-row">
                       <span className="preview-date">{transaction.date}</span>
                       <span className="preview-description">{transaction.description}</span>
-                      <span className={`preview-amount ${transaction.amount < 0 ? 'expense' : 'income'}`}>
-                        {transaction.amount < 0 ? '-' : '+'}${Math.abs(transaction.amount).toFixed(2)}
+                      <span className="preview-amount expense">
+                        -${Math.abs(transaction.amount).toFixed(2)}
                       </span>
                       <span className="preview-category">
-                        <span 
-                          className="category-badge" 
-                          style={{ backgroundColor: getCategoryColor(transaction.category_id) }}
-                        >
-                          {getCategoryName(transaction.category_id)}
-                        </span>
+                        {transaction.llm_suggested_category ? (
+                          // The local model proposed a category that doesn't exist yet.
+                          // Nothing is created unless the user applies it here - without
+                          // that, this row imports as "Other".
+                          <div className="llm-suggestion-wrapper">
+                            <span className="llm-suggestion-badge" title="Suggested by the local AI">
+                              ✨ {transaction.llm_suggested_category}
+                            </span>
+                            <button
+                              className={`apply-btn ${
+                                appliedCategories.has(transaction.llm_suggested_category) ? 'applied' : ''
+                              } ${
+                                existingCategoryNames.has(transaction.llm_suggested_category) ? 'disabled' : ''
+                              }`}
+                              onClick={() => handleApplyCategory(transaction.llm_suggested_category)}
+                              disabled={existingCategoryNames.has(transaction.llm_suggested_category)}
+                              title={
+                                existingCategoryNames.has(transaction.llm_suggested_category)
+                                  ? 'Category already exists'
+                                  : appliedCategories.has(transaction.llm_suggested_category)
+                                  ? 'Click to unapply'
+                                  : `Create "${transaction.llm_suggested_category}" and use it for this transaction. Without this the row imports as Other.`
+                              }
+                            >
+                              {existingCategoryNames.has(transaction.llm_suggested_category)
+                                ? 'Exists'
+                                : appliedCategories.has(transaction.llm_suggested_category)
+                                ? '✓ Applied'
+                                : 'Apply'}
+                            </button>
+                          </div>
+                        ) : SOURCE_LABELS[transaction.categorization_source] ? (
+                          // Something in the cascade actually picked this - say which,
+                          // so a built-in keyword hit isn't credited to the AI.
+                          <div className="auto-category-wrapper">
+                            <span
+                              className="category-badge"
+                              style={{ backgroundColor: getCategoryColor(transaction.category_id) }}
+                            >
+                              {getCategoryName(transaction.category_id)}
+                            </span>
+                            <span
+                              className={`source-tag source-${transaction.categorization_source}`}
+                              title={SOURCE_TOOLTIPS[transaction.categorization_source]}
+                            >
+                              {SOURCE_LABELS[transaction.categorization_source]}
+                            </span>
+                          </div>
+                        ) : (
+                          <span
+                            className="no-auto-category"
+                            title={SOURCE_TOOLTIPS[transaction.categorization_source] || ''}
+                          >
+                            N/A
+                          </span>
+                        )}
                       </span>
                       <span className="preview-csv-category">
                         <div className="csv-category-wrapper">
