@@ -1,4 +1,4 @@
-# Personal Finance Tracker
+# Personal Expense Tracker
 
 A privacy-first expense tracker that runs entirely on your own machine. Upload a bank or
 credit-card CSV, and it parses the file, works out what each purchase was for, and shows you
