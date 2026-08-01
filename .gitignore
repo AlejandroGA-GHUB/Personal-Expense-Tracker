@@ -1,0 +1,54 @@
+# ---- Never commit real financial data ----
+# Each install owns its own database; statements stay on your machine.
+# A deliberate safety net: a genuine sample CSV would need an explicit ! override.
+*.csv
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# ---- Secrets ----
+# See backend/.env.example for the template.
+.env
+.env.local
+.env.*.local
+
+# ---- Dependencies ----
+node_modules/
+venv/
+env/
+finance_env/
+
+# ---- Build output ----
+/frontend/dist
+.vite/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+
+# ---- Test / coverage ----
+.coverage
+htmlcov/
+.pytest_cache/
+/frontend/coverage
+
+# ---- Logs ----
+*.log
+logs/
+npm-debug.log*
+
+# ---- Editors / IDE ----
+# Claude Code's per-machine settings; CLAUDE.md itself is committed.
+.claude/settings.local.json
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+ehthumbs.db

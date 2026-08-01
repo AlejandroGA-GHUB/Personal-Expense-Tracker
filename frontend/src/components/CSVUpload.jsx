@@ -1,6 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
 import './CSVUpload.css';
 
+// What to call each stage of the backend's categorization cascade
+// (see categorizer.SOURCE_*). Sources missing from this map get no credit in the
+// preview: 'bank_category' means the bank labelled the row itself - its label is
+// already shown in the CSV Original column - and 'none' means nothing matched.
+// Calling either of those an AI categorization was the misleading part.
+const SOURCE_LABELS = {
+  learned_keywords: 'Learned Mapping',
+  llm: 'AI Mapping',
+  builtin_keywords: 'Educated System Mapping'
+};
+
+const SOURCE_TOOLTIPS = {
+  learned_keywords: 'Matched a keyword mapping this app learned from your past corrections',
+  llm: 'Chosen by the local AI model',
+  builtin_keywords: "Matched the app's built-in keyword list - no AI was called for this row",
+  bank_category: "Taken from the bank's own category on this row - no AI was called",
+  none: 'Nothing matched, so this row imports as Other'
+};
+
 const CSVUpload = ({ onUploadSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
@@ -13,6 +32,8 @@ const CSVUpload = ({ onUploadSuccess }) => {
   const [detectingBank, setDetectingBank] = useState(false);
   const [categories, setCategories] = useState([]);
   const [supportedBanks, setSupportedBanks] = useState([]);
+  const [appliedCategories, setAppliedCategories] = useState(new Set());
+  const [existingCategoryNames, setExistingCategoryNames] = useState(new Set());
   const fileInputRef = useRef(null);
 
   // Fetch categories and supported banks on mount
@@ -23,6 +44,8 @@ const CSVUpload = ({ onUploadSuccess }) => {
         if (response.ok) {
           const data = await response.json();
           setCategories(data);
+          // Extract category names for duplicate checking
+          setExistingCategoryNames(new Set(data.map(cat => cat.name)));
         }
       } catch (err) {
         console.error('Error fetching categories:', err);
@@ -55,6 +78,21 @@ const CSVUpload = ({ onUploadSuccess }) => {
   const getCategoryColor = (categoryId) => {
     const category = categories.find(cat => cat.id === categoryId);
     return category ? category.color : '#6c757d';
+  };
+
+  // Handle applying CSV category
+  const handleApplyCategory = (categoryName) => {
+    if (categoryName === 'N/A') return; // Don't allow applying N/A
+    
+    setAppliedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryName)) {
+        newSet.delete(categoryName);
+      } else {
+        newSet.add(categoryName);
+      }
+      return newSet;
+    });
   };
 
   // Detect bank format from file
@@ -185,10 +223,12 @@ const CSVUpload = ({ onUploadSuccess }) => {
     setError('');
     setUploadResult(null);
 
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-
     try {
+      // Upload CSV with applied categories
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('applied_categories', JSON.stringify(Array.from(appliedCategories)));
+
       const response = await fetch('http://localhost:8000/api/transactions/upload-csv', {
         method: 'POST',
         body: formData,
@@ -198,15 +238,14 @@ const CSVUpload = ({ onUploadSuccess }) => {
 
       if (response.ok && data.success) {
         setUploadResult(data);
-        setPreviewData(null); // Clear preview after successful upload
-        // Clear the file selection after successful upload
+        setPreviewData(null);
         setSelectedFile(null);
+        setAppliedCategories(new Set()); // Clear applied categories
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
-        // Notify parent component of successful upload
         if (onUploadSuccess) {
-          setTimeout(() => onUploadSuccess(), 2000); // Give user time to see success message
+          setTimeout(() => onUploadSuccess(), 2000);
         }
       } else {
         setError(data.detail || 'Failed to upload CSV file');
@@ -228,6 +267,7 @@ const CSVUpload = ({ onUploadSuccess }) => {
     setDragActive(false);
     setDetectedBank(null);
     setDetectingBank(false);
+    setAppliedCategories(new Set());
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -390,22 +430,104 @@ const CSVUpload = ({ onUploadSuccess }) => {
                     <span>Date</span>
                     <span>Description</span>
                     <span>Amount</span>
-                    <span>Category</span>
+                    <span>Auto-Category</span>
+                    <span>CSV Original</span>
                   </div>
                   {previewData.preview_transactions.map((transaction, index) => (
                     <div key={index} className="preview-row">
                       <span className="preview-date">{transaction.date}</span>
                       <span className="preview-description">{transaction.description}</span>
-                      <span className={`preview-amount ${transaction.amount < 0 ? 'expense' : 'income'}`}>
-                        {transaction.amount < 0 ? '-' : '+'}${Math.abs(transaction.amount).toFixed(2)}
+                      <span className="preview-amount expense">
+                        -${Math.abs(transaction.amount).toFixed(2)}
                       </span>
                       <span className="preview-category">
-                        <span 
-                          className="category-badge" 
-                          style={{ backgroundColor: getCategoryColor(transaction.category_id) }}
-                        >
-                          {getCategoryName(transaction.category_id)}
-                        </span>
+                        {transaction.llm_suggested_category ? (
+                          // The local model proposed a category that doesn't exist yet.
+                          // Nothing is created unless the user applies it here - without
+                          // that, this row imports as "Other".
+                          <div className="llm-suggestion-wrapper">
+                            <span className="llm-suggestion-badge" title="Suggested by the local AI">
+                              ✨ {transaction.llm_suggested_category}
+                            </span>
+                            <button
+                              className={`apply-btn ${
+                                appliedCategories.has(transaction.llm_suggested_category) ? 'applied' : ''
+                              } ${
+                                existingCategoryNames.has(transaction.llm_suggested_category) ? 'disabled' : ''
+                              }`}
+                              onClick={() => handleApplyCategory(transaction.llm_suggested_category)}
+                              disabled={existingCategoryNames.has(transaction.llm_suggested_category)}
+                              title={
+                                existingCategoryNames.has(transaction.llm_suggested_category)
+                                  ? 'Category already exists'
+                                  : appliedCategories.has(transaction.llm_suggested_category)
+                                  ? 'Click to unapply'
+                                  : `Create "${transaction.llm_suggested_category}" and use it for this transaction. Without this the row imports as Other.`
+                              }
+                            >
+                              {existingCategoryNames.has(transaction.llm_suggested_category)
+                                ? 'Exists'
+                                : appliedCategories.has(transaction.llm_suggested_category)
+                                ? '✓ Applied'
+                                : 'Apply'}
+                            </button>
+                          </div>
+                        ) : SOURCE_LABELS[transaction.categorization_source] ? (
+                          // Something in the cascade actually picked this - say which,
+                          // so a built-in keyword hit isn't credited to the AI.
+                          <div className="auto-category-wrapper">
+                            <span
+                              className="category-badge"
+                              style={{ backgroundColor: getCategoryColor(transaction.category_id) }}
+                            >
+                              {getCategoryName(transaction.category_id)}
+                            </span>
+                            <span
+                              className={`source-tag source-${transaction.categorization_source}`}
+                              title={SOURCE_TOOLTIPS[transaction.categorization_source]}
+                            >
+                              {SOURCE_LABELS[transaction.categorization_source]}
+                            </span>
+                          </div>
+                        ) : (
+                          <span
+                            className="no-auto-category"
+                            title={SOURCE_TOOLTIPS[transaction.categorization_source] || ''}
+                          >
+                            N/A
+                          </span>
+                        )}
+                      </span>
+                      <span className="preview-csv-category">
+                        <div className="csv-category-wrapper">
+                          <span className={`csv-category-badge ${!transaction.csv_category_name ? 'empty' : ''}`}>
+                            {transaction.csv_category_name || '-'}
+                          </span>
+                          {transaction.csv_category_name && transaction.csv_category_name !== 'N/A' && (
+                            <button
+                              className={`apply-btn ${
+                                appliedCategories.has(transaction.csv_category_name) ? 'applied' : ''
+                              } ${
+                                existingCategoryNames.has(transaction.csv_category_name) ? 'disabled' : ''
+                              }`}
+                              onClick={() => handleApplyCategory(transaction.csv_category_name)}
+                              disabled={existingCategoryNames.has(transaction.csv_category_name)}
+                              title={
+                                existingCategoryNames.has(transaction.csv_category_name)
+                                  ? 'Category already exists'
+                                  : appliedCategories.has(transaction.csv_category_name)
+                                  ? 'Click to unapply'
+                                  : 'Apply this category'
+                              }
+                            >
+                              {existingCategoryNames.has(transaction.csv_category_name)
+                                ? 'Exists'
+                                : appliedCategories.has(transaction.csv_category_name)
+                                ? '✓ Applied'
+                                : 'Apply'}
+                            </button>
+                          )}
+                        </div>
                       </span>
                     </div>
                   ))}

@@ -49,10 +49,9 @@ const ManualTransactionForm = () => {
     setMessage({ text: '', type: '' });
 
     try {
-      // Convert amount to number and make expenses negative
+      // Convert amount to number and make expenses negative (system only handles expenses)
       const amount = parseFloat(formData.amount);
-      const transactionType = document.querySelector('input[name="transactionType"]:checked').value;
-      const finalAmount = transactionType === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+      const finalAmount = -Math.abs(amount);
 
       const transactionData = {
         description: formData.description,
@@ -84,8 +83,6 @@ const ManualTransactionForm = () => {
           category_id: categories.length > 0 ? categories[0].id : ''
         });
         
-        // Reset radio button to expense (default)
-        document.querySelector('input[value="expense"]').checked = true;
         
       } else {
         const errorData = await response.json();
@@ -144,28 +141,7 @@ const ManualTransactionForm = () => {
           />
         </div>
 
-        <div className="form-group">
-          <label>Transaction Type:</label>
-          <div className="radio-group">
-            <label>
-              <input
-                type="radio"
-                name="transactionType"
-                value="expense"
-                defaultChecked
-              />
-              💸 Expense
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="transactionType"
-                value="income"
-              />
-              💰 Income
-            </label>
-          </div>
-        </div>
+        {/* Transaction type removed — system records expenses only */}
 
         <div className="form-group">
           <label htmlFor="date">Date & Time:</label>

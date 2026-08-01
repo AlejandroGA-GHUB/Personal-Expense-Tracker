@@ -3,6 +3,7 @@ import './App.css'
 import CSVUpload from './components/CSVUpload'
 import ManualTransactionForm from './components/ManualTransactionForm'
 import Dashboard from './components/Dashboard'
+import ChartsReports from './components/ChartsReports'
 
 function App() {
   const [currentView, setCurrentView] = useState('upload')
@@ -10,7 +11,7 @@ function App() {
   return (
     <div className="App">
       <header className="app-header">
-        <h1>Personal Finance Tracker</h1>
+        <h1>Personal Expense Tracker</h1>
         <nav className="app-nav">
           <button 
             onClick={() => setCurrentView('upload')}
@@ -30,13 +31,28 @@ function App() {
           >
             Dashboard
           </button>
+          <button 
+            onClick={() => setCurrentView('charts')}
+            className={currentView === 'charts' ? 'active' : ''}
+          >
+            Charts & Reports
+          </button>
         </nav>
       </header>
 
       <main className="app-main">
-        {currentView === 'upload' && <CSVUpload />}
-        {currentView === 'manual' && <ManualTransactionForm />}
-        {currentView === 'dashboard' && <Dashboard />}
+        <div style={{ display: currentView === 'upload' ? 'block' : 'none' }}>
+          <CSVUpload />
+        </div>
+        <div style={{ display: currentView === 'manual' ? 'block' : 'none' }}>
+          <ManualTransactionForm />
+        </div>
+        <div style={{ display: currentView === 'dashboard' ? 'block' : 'none' }}>
+          <Dashboard />
+        </div>
+        <div style={{ display: currentView === 'charts' ? 'block' : 'none' }}>
+          <ChartsReports />
+        </div>
       </main>
     </div>
   )

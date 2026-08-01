@@ -43,7 +43,6 @@ class CategoryKeyword(Base):
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False, index=True)
     keyword = Column(String(100), nullable=False, index=True)
     weight = Column(Integer, default=1, nullable=False)
-    is_default = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -61,7 +60,7 @@ class Transaction(Base):
     
     # Core transaction data (usually from CSV upload)
     description = Column(String(255), nullable=False)  # "Starbucks Coffee"
-    amount = Column(Float, nullable=False)  # -4.50 (negative=expense, positive=income)
+    amount = Column(Float, nullable=False)  # -4.50 (always negative; this app tracks expenses only)
     date = Column(DateTime, nullable=False, index=True)  # When it happened
     
     # Links to category (foreign key)
@@ -74,6 +73,7 @@ class Transaction(Base):
     # CSV upload tracking (for audit trail)
     source_file = Column(String(255), nullable=True)  # "chase_statement_jan2024.csv"
     original_row = Column(Integer, nullable=True)  # Row 15 in the original CSV
+    csv_category_name = Column(String(255), nullable=True) # Original CSV category name for user reference and preview use
     
     # Auto-managed timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -85,16 +85,6 @@ class Transaction(Base):
     
     # === HELPER PROPERTIES ===
     # These are computed properties, not stored in database
-    
-    @property
-    def is_income(self):
-        """Returns True if this is income (positive amount)"""
-        return self.amount > 0
-    
-    @property
-    def is_expense(self):
-        """Returns True if this is an expense (negative amount)"""
-        return self.amount < 0
     
     @property
     def absolute_amount(self):
@@ -142,13 +132,6 @@ DEFAULT_CATEGORIES = [
         "is_default": True
     },
     {
-        "name": "Income", 
-        "description": "Salary, freelance, investments", 
-        "color": "#98FB98",  # Light Green
-        "icon": "💰", 
-        "is_default": True
-    },
-    {
         "name": "Other", 
         "description": "Miscellaneous expenses", 
         "color": "#D3D3D3",  # Gray
@@ -160,7 +143,6 @@ DEFAULT_CATEGORIES = [
 
 # === DEFAULT CATEGORY KEYWORDS ===
 # Comprehensive keyword mappings for smart auto-categorization
-# Special rules: Positive amounts default to Income category
 
 DEFAULT_KEYWORDS = {
     "Food & Dining": [
@@ -196,7 +178,10 @@ DEFAULT_KEYWORDS = {
         "transit", "metro", "subway", "train", "bus", "rail", "mta", "bart", "cta",
         "septa", "wmata", "mbta", "metrocard", "clipper", "orca", "charlie card",
         # Parking & Tolls
-        "parking", "park", "toll", "ezpass", "fastrak", "sunpass", "ipass",
+        # NOTE: no bare "park" - "parking" covers the real case, while "park" also
+        # matches street addresses ("APPLE PARK WAY", "PARK AVE") and filed Apple
+        # subscriptions under Transportation.
+        "parking", "toll", "ezpass", "fastrak", "sunpass", "ipass",
         # Auto Services  
         "gas", "fuel", "auto", "car wash", "oil change", "jiffy lube", "valvoline",
         "pep boys", "autozone", "advance auto", "napa", "mechanic", "tire", "repair",
@@ -271,20 +256,6 @@ DEFAULT_KEYWORDS = {
         "liberty mutual", "nationwide", "usaa",
         # Subscriptions
         "subscription", "membership", "recurring", "monthly", "annual"
-    ],
-    
-    "Income": [
-        # Employment
-        "payroll", "salary", "wage", "paycheck", "direct deposit", "employer",
-        "bonus", "commission", "tip", "tips", "income", "payment received",
-        # Freelance & Gig
-        "freelance", "consulting", "contractor", "upwork", "fiverr", "venmo",
-        "paypal", "zelle", "cash app", "square",
-        # Returns & Refunds
-        "refund", "reimbursement", "return", "credit", "cashback", "cash back",
-        "rebate", "reward",
-        # Investments
-        "dividend", "interest", "capital gain", "distribution"
     ],
 }
 

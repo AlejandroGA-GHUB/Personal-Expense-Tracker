@@ -4,3 +4,4 @@ sqlalchemy
 pydantic
 python-multipart
 pandas
+python-dotenv

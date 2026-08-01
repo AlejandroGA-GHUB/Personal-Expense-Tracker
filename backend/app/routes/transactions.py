@@ -1,12 +1,14 @@
 """
 Transaction routes for personal finance tracker
 """
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Query
+import json
+from typing import Dict
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Query, Form
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import crud, schemas
-from ..utils.csv_parser import validate_csv_format, get_csv_preview, parse_csv_auto_detect, BANK_FORMATS
+from ..utils.csv_parser import validate_csv_format, get_csv_preview, parse_csv_auto_detect, create_csv_categories, BANK_FORMATS
 
 # Create router instance
 router = APIRouter()
@@ -40,9 +42,8 @@ async def create_transaction(
         "category_id": 1
     }
     
-    Note: 
-    - Negative amount = expense
-    - Positive amount = income
+    Note:
+    - Amount must be negative; this app tracks expenses only
     - category_id references the categories table
     """
     return crud.create_transaction_manually(db=db, transaction=transaction)
@@ -68,28 +69,24 @@ async def get_transactions(
 @router.get("/filter", response_model=list[schemas.TransactionOut])
 async def get_filtered_transactions(
     category_ids: list[int] = Query(None),
-    transaction_type: str = None,
     db: Session = Depends(get_db)
 ):
     """
-    Get all transactions with combined filtering - returns ALL matching results
+    Get all transactions with category filtering - returns ALL matching results
     
     Query parameters:
     - category_ids: Filter by specific category IDs (optional, can specify multiple)
-    - transaction_type: "Expense" or "Income" (optional)
     
     Note: Returns ALL matching transactions (no pagination limit)
     Frontend handles pagination display
     
     Examples:
-    - GET /api/transactions/filter?category_ids=1&category_ids=3&transaction_type=Expense
+    - GET /api/transactions/filter?category_ids=1&category_ids=3
     - GET /api/transactions/filter?category_ids=1
-    - GET /api/transactions/filter?transaction_type=Income
     """
     return crud.get_filtered_transactions(
         db=db,
-        category_ids=category_ids,
-        transaction_type=transaction_type
+        category_ids=category_ids
     )
 
 
@@ -107,22 +104,6 @@ async def get_transactions_by_category_id(
     Example: GET /api/transactions/category/1
     """
     sorted_transactions = crud.get_transactions_by_category_id(db=db, category_id=category_id)
-    return sorted_transactions
-
-@router.get("/expense_or_income/{expense_or_income}", response_model=list[schemas.TransactionOut])
-async def get_transaction_by_expense_or_income(
-    expense_or_income: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Get all transactions for a specific transaction type
-    
-    Path parameters:
-    - category_id: Transaction type to filter by, expense or income
-    
-    Example: GET /api/transactions/expense_or_income/"Expense"
-    """
-    sorted_transactions = crud.get_transactions_by_expense_or_income(db=db, expense_or_income=expense_or_income)
     return sorted_transactions
 
 @router.patch("/{transaction_id}", response_model=schemas.TransactionOut)
@@ -153,9 +134,10 @@ async def update_transaction(
     """
     return crud.update_transaction(db=db, transaction_id=transaction_id, transaction=transaction)
 
-@router.post("/upload-csv", response_model=dict)
+@router.post("/upload-csv", response_model=Dict)
 async def upload_csv_transactions(
     file: UploadFile = File(...),
+    applied_categories: str = Form("[]"),
     db: Session = Depends(get_db)
 ):
     """
@@ -179,6 +161,9 @@ async def upload_csv_transactions(
         raise HTTPException(status_code=400, detail="File must be a CSV")
     
     try:
+        # Loads the json form from the preview applications made by the user into a list of strings
+        applied_categories_list: list[str] = json.loads(applied_categories)
+
         # Read the CSV content
         csv_content = await file.read()
         csv_text = csv_content.decode('utf-8')
@@ -193,6 +178,27 @@ async def upload_csv_transactions(
         
         # Parse transactions with auto-detection and auto-categorization
         transactions = parse_csv_auto_detect(csv_text, file.filename, db)
+
+        # Create the applied categories only AFTER parsing. Creating them first put
+        # them in the category list handed to the LLM, so the upload pass answered a
+        # different question than the preview did: applying "Travel" and "Airlines"
+        # together made the model pick the now-existing "Airlines" for a flight
+        # booking it had proposed "Travel" for, and since that's an existing
+        # category it carried no suggestion for the override below to remap.
+        csv_category_mappings = {}
+        if applied_categories_list:
+            csv_category_mappings = create_csv_categories(applied_categories_list, db)
+
+        # Override the category.id set by the parsing above with the user's choice from
+        # the preview. Two kinds of name can be applied there and they share this
+        # mapping: the bank's own CSV category, and a new category the LLM proposed.
+        # The bank's category wins when both are present, since it came from the data
+        # rather than from a model's guess.
+        for transaction in transactions:
+            if transaction.csv_category_name in csv_category_mappings:
+                transaction.category_id = csv_category_mappings[transaction.csv_category_name]
+            elif transaction.llm_suggested_category in csv_category_mappings:
+                transaction.category_id = csv_category_mappings[transaction.llm_suggested_category]
         
         if not transactions:
             return {

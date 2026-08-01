@@ -13,15 +13,17 @@ const Dashboard = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [addingCategory, setAddingCategory] = useState(false);
+  const [showManageCategories, setShowManageCategories] = useState(false);
+  const [confirmDeleteCategoryId, setConfirmDeleteCategoryId] = useState(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState(null);
+  const [categoryNotice, setCategoryNotice] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [filters, setFilters] = useState({
-    categories: [], // Array for multiple selection
-    transactionType: 'all'
+    categories: [] // Array for multiple selection
   });
   const [tempFilters, setTempFilters] = useState({
-    categories: [], // Array for multiple selection
-    transactionType: 'all'
+    categories: [] // Array for multiple selection
   });
   const [showCSVUpload, setShowCSVUpload] = useState(false);
   const [showFileInfo, setShowFileInfo] = useState(false);
@@ -73,27 +75,18 @@ const Dashboard = () => {
       
       // Check what filters are active
       const hasCategories = filters.categories.length > 0;
-      const hasType = filters.transactionType !== 'all';
       
-      if (hasCategories || hasType) {
-        // Use filter endpoint for any combination of filters
+      if (hasCategories) {
+        // Use filter endpoint for category filtering
         url = `http://localhost:8000/api/transactions/filter?`;
         
         // Add category_ids (multiple)
-        if (hasCategories) {
-          filters.categories.forEach(catId => {
-            url += `category_ids=${catId}&`;
-          });
-        }
+        filters.categories.forEach(catId => {
+          url += `category_ids=${catId}&`;
+        });
         
-        // Add transaction_type
-        if (hasType) {
-          const typeParam = filters.transactionType === 'expense' ? 'Expense' : 'Income';
-          url += `transaction_type=${typeParam}&`;
-        }
-        
-        // Remove trailing & or ?
-        url = url.replace(/[&?]$/, '');
+        // Remove trailing &
+        url = url.replace(/&$/, '');
       } else {
         // No filters: use main endpoint with pagination
         url = `http://localhost:8000/api/transactions/?skip=${skip}&limit=${TRANSACTIONS_PER_PAGE}`;
@@ -111,7 +104,7 @@ const Dashboard = () => {
         }
         
         // Only show "Load More" for unfiltered results (which use pagination)
-        setHasMore(!hasCategories && !hasType && data.length === TRANSACTIONS_PER_PAGE);
+        setHasMore(!hasCategories && data.length === TRANSACTIONS_PER_PAGE);
       } else {
         setError('Failed to load transactions');
       }
@@ -145,7 +138,6 @@ const Dashboard = () => {
   const getActiveFiltersCount = () => {
     let count = 0;
     if (filters.categories.length > 0) count += filters.categories.length;
-    if (filters.transactionType !== 'all') count++;
     return count;
   };
 
@@ -154,9 +146,6 @@ const Dashboard = () => {
     if (filters.categories.length > 0) {
       const categoryNames = filters.categories.map(catId => getCategoryName(catId)).join(', ');
       parts.push(`Categories: ${categoryNames}`);
-    }
-    if (filters.transactionType !== 'all') {
-      parts.push(`Type: ${filters.transactionType === 'expense' ? 'Expenses' : 'Income'}`);
     }
     return parts.length > 0 ? parts.join(' | ') : 'All Transactions';
   };
@@ -197,6 +186,46 @@ const Dashboard = () => {
       console.error('Error creating category:', err);
     } finally {
       setAddingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId) => {
+    setDeletingCategoryId(categoryId);
+    setError('');
+    setCategoryNotice('');
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/categories/${categoryId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setCategories(prev => prev.filter(category => category.id !== categoryId));
+        setConfirmDeleteCategoryId(null);
+        setCategoryNotice(data.message);
+
+        // Drop any filter pointing at the category that no longer exists, and
+        // reload: its transactions are now sitting in Other and should show that.
+        setFilters(prev => ({
+          ...prev,
+          categories: prev.categories.filter(id => id !== categoryId)
+        }));
+        setTempFilters(prev => ({
+          ...prev,
+          categories: prev.categories.filter(id => id !== categoryId)
+        }));
+        setCurrentPage(0);
+        setTransactions([]);
+      } else {
+        setError(data.detail || 'Failed to delete category');
+      }
+    } catch (err) {
+      setError('Error connecting to server');
+      console.error('Error deleting category:', err);
+    } finally {
+      setDeletingCategoryId(null);
     }
   };
 
@@ -241,10 +270,9 @@ const Dashboard = () => {
   };
 
   const formatAmount = (amount) => {
-    const isExpense = amount < 0;
+    // All transactions are expenses, so only the magnitude varies
     return {
-      value: Math.abs(amount).toFixed(2),
-      isExpense
+      value: Math.abs(amount).toFixed(2)
     };
   };
 
@@ -284,8 +312,7 @@ const Dashboard = () => {
       description: transaction.description,
       amount: Math.abs(transaction.amount).toString(),
       date: new Date(transaction.date).toISOString().slice(0, 16),
-      category_id: transaction.category_id,
-      isExpense: transaction.amount < 0
+      category_id: transaction.category_id
     });
   };
 
@@ -304,9 +331,9 @@ const Dashboard = () => {
     setError('');
 
     try {
-      const finalAmount = editFormData.isExpense 
-        ? -Math.abs(parseFloat(editFormData.amount))
-        : Math.abs(parseFloat(editFormData.amount));
+      // This app tracks expenses only, so an edited amount is always stored negative.
+      // The API enforces the same rule and rejects anything else.
+      const finalAmount = -Math.abs(parseFloat(editFormData.amount));
 
       const response = await fetch(`http://localhost:8000/api/transactions/${transactionId}`, {
         method: 'PATCH',
@@ -408,6 +435,7 @@ const Dashboard = () => {
               setShowAddCategory(true);
               setShowFilters(false); // Close filter form
               setShowCSVUpload(false); // Close CSV upload
+              setShowManageCategories(false); // Close category manager
             }}
             className="add-category-btn"
             disabled={showAddCategory}
@@ -415,11 +443,27 @@ const Dashboard = () => {
             + Add Category
           </button>
 
-          <button 
+          <button
+            onClick={() => {
+              setShowManageCategories(true);
+              setShowFilters(false); // Close filter form
+              setShowAddCategory(false); // Close category form
+              setShowCSVUpload(false); // Close CSV upload
+              setConfirmDeleteCategoryId(null);
+              setCategoryNotice('');
+            }}
+            className="delete-categories-btn"
+            disabled={showManageCategories}
+          >
+            - Delete Categories
+          </button>
+
+          <button
             onClick={() => {
               setShowCSVUpload(true);
               setShowFilters(false); // Close filter form
               setShowAddCategory(false); // Close category form
+              setShowManageCategories(false); // Close category manager
             }}
             className="csv-upload-btn"
           >
@@ -474,6 +518,85 @@ const Dashboard = () => {
               disabled={addingCategory || !newCategoryName.trim()}
             >
               {addingCategory ? 'Creating...' : 'Create Category'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Categories */}
+      {showManageCategories && (
+        <div className="delete-categories-form">
+          <div className="form-header">
+            <h3>Delete Categories</h3>
+            <p className="form-hint">
+              Deleting a category moves its transactions into <strong>Other</strong> - no transactions are lost.
+            </p>
+          </div>
+
+          {categoryNotice && (
+            <div className="category-notice">{categoryNotice}</div>
+          )}
+
+          <div className="category-list">
+            {categories.map(category => (
+              <div key={category.id} className="category-row">
+                <div className="category-info">
+                  <span className="category-badge">{category.name}</span>
+                  {category.description && (
+                    <span className="category-description">{category.description}</span>
+                  )}
+                </div>
+
+                {category.name === 'Other' ? (
+                  // Every deletion empties into Other, and it's the last resort of
+                  // auto-categorization - so it's the one category that has to stay.
+                  <span className="category-locked" title="Other is the fallback every other category empties into">
+                    🔒 Fallback category
+                  </span>
+                ) : confirmDeleteCategoryId === category.id ? (
+                  <div className="confirm-delete">
+                    <span className="confirm-text">Move its transactions to Other and delete?</span>
+                    <button
+                      onClick={() => handleDeleteCategory(category.id)}
+                      className="confirm-delete-btn"
+                      disabled={deletingCategoryId === category.id}
+                    >
+                      {deletingCategoryId === category.id ? 'Deleting...' : 'Yes, delete'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteCategoryId(null)}
+                      className="confirm-cancel-btn"
+                      disabled={deletingCategoryId === category.id}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setConfirmDeleteCategoryId(category.id);
+                      setCategoryNotice('');
+                    }}
+                    className="delete-category-btn"
+                    title={`Delete ${category.name}`}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="form-actions">
+            <button
+              onClick={() => {
+                setShowManageCategories(false);
+                setConfirmDeleteCategoryId(null);
+                setCategoryNotice('');
+              }}
+              className="cancel-btn"
+            >
+              Close
             </button>
           </div>
         </div>
@@ -535,25 +658,12 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
-            
-            <div className="field-group">
-              <label htmlFor="filter-type">Filter by Type:</label>
-              <select
-                id="filter-type"
-                value={tempFilters.transactionType}
-                onChange={(e) => setTempFilters(prev => ({ ...prev, transactionType: e.target.value }))}
-              >
-                <option value="all">All Types</option>
-                <option value="expense">Expenses Only</option>
-                <option value="income">Income Only</option>
-              </select>
-            </div>
           </div>
           
           <div className="form-actions">
             <button 
               onClick={() => {
-                setTempFilters({ categories: [], transactionType: 'all' });
+                setTempFilters({ categories: [] });
                 setShowCategoryDropdown(false);
                 setShowFilters(false);
               }}
@@ -661,20 +771,13 @@ const Dashboard = () => {
                       </span>
                     )}
                   </td>
-                  <td className={`amount-cell ${amount.isExpense ? 'expense' : 'income'}`}>
+                  <td className="amount-cell expense">
                     {isEditing ? (
                       <div className="amount-edit-group">
-                        <select
-                          value={editFormData.isExpense ? 'expense' : 'income'}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, isExpense: e.target.value === 'expense' }))}
-                          className="edit-select type-select"
-                        >
-                          <option value="expense">Expense</option>
-                          <option value="income">Income</option>
-                        </select>
                         <input
                           type="number"
                           step="0.01"
+                          min="0"
                           value={editFormData.amount}
                           onChange={(e) => setEditFormData(prev => ({ ...prev, amount: e.target.value }))}
                           className="edit-input amount-input"
@@ -682,7 +785,7 @@ const Dashboard = () => {
                         />
                       </div>
                     ) : (
-                      `${amount.isExpense ? '-' : '+'}$${amount.value}`
+                      `-$${amount.value}`
                     )}
                   </td>
                   <td className="source-cell">
@@ -756,7 +859,7 @@ const Dashboard = () => {
       </div>
 
       {/* Load More Button */}
-      {filters.category === 'all' && filters.transactionType === 'all' && hasMore && !loading && (
+      {filters.categories.length === 0 && hasMore && !loading && (
         <div className="load-more-container">
           <button 
             onClick={loadMoreTransactions}
@@ -841,9 +944,8 @@ const Dashboard = () => {
                   </div>
                   <div className="transaction-detail">
                     <span className="detail-label">Amount:</span>
-                    <span className={`detail-value ${selectedFileInfo.transaction.amount < 0 ? 'expense' : 'income'}`}>
-                      {selectedFileInfo.transaction.amount < 0 ? '-' : '+'}$
-                      {Math.abs(selectedFileInfo.transaction.amount).toFixed(2)}
+                    <span className="detail-value expense">
+                      -${Math.abs(selectedFileInfo.transaction.amount).toFixed(2)}
                     </span>
                   </div>
                   <div className="transaction-detail">
