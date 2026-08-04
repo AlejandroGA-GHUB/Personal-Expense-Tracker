@@ -1,7 +1,7 @@
 """
 Local-LLM fallback for transactions the keyword scorer couldn't place.
 
-Stage 3 of the categorization cascade (bank CSV category -> learned keywords ->
+Stage 3 of the categorization cascade (learned keywords -> bank CSV Category ->
 LLM -> "Other"). Talks to an Ollama-compatible endpoint on the user's own
 machine, so descriptions never leave the device. Entirely optional: when it's
 disabled, unreachable or unsure, it returns None and the caller falls through to

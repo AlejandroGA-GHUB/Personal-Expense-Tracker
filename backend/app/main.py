@@ -1,5 +1,5 @@
 """
-FastAPI main application for distributed personal finance tracker.
+FastAPI main application for the local privacy first Personal Expense Tracker.
 Serves both API endpoints and React frontend files.
 """
 
