@@ -258,6 +258,33 @@ last resort. Everything else is fair game, including the seeded defaults.
 
 ---
 
+## Tests
+
+`backend/tests/` is a pytest suite: 60 tests over the parser, the cascade and the API. Run it
+from `backend/` with `pytest`.
+
+**Nothing touches the real database.** `conftest.py` sets `DATABASE_URL` to a throwaway SQLite
+file in a temp directory *before* `app.database` is imported anywhere, so the engine is bound
+to that file from the moment it is created. Overriding the `get_db` dependency alone would not
+be enough, since anything reaching the FastAPI lifespan on startup would still open the real
+`finance.db`.
+
+`pytest.ini` pins `testpaths = tests` for the same reason from the other direction:
+`backend/scripts/` holds `reset_db.py`, which drops every table, so collecting that directory
+on a bare `pytest` run would destroy the real database.
+
+| File | Covers |
+|------|--------|
+| `test_csv_parser.py` (17) | `strip_merchant_address` boundaries, bank-format auto-detection, sign inversion and the income drop, and that every parsed row reports a `categorization_source` |
+| `test_categorizer.py` (21) | cascade ordering stage by stage, the `_bank_labelled()` gate on stage 3, keyword extraction, `_is_learnable`, and both learning paths |
+| `test_api.py` (22) | routing, category create/delete with the "Other" reassignment and keyword cascade, the `amount < 0` rejection, filtering, and the report endpoints |
+
+The categorizer tests are where this document's claims are held honest. `TestIsLearnable`
+encodes the concentration guard, including `test_is_not_frequency_based` for the small-file
+case that motivated it, so the `usa` failure above cannot return unnoticed;
+`test_second_pass_is_answered_by_stage_one` pins the zero-model-calls-on-reimport property
+that `learn_from_import` exists to provide.
+
 ## Known limitations
 
 - **The LLM stage runs twice per import.** `preview-csv` and `upload-csv` each parse the file
@@ -299,13 +326,9 @@ last resort. Everything else is fair game, including the seeded defaults.
   in "Other" with no suggestion. Letting stage 3 run whenever stage 2 *fails to map* would fix
   this; it hasn't been done yet.
 
-- **No test framework.** `backend/tests/` holds standalone scripts, not a pytest suite, and
-  they run against the real database.
-
 ## Possible next steps
 
 - Post preview decisions back on upload, removing the double LLM pass.
 - Let stage 3 run when stage 2 fails to map a label.
 - Extend the alias table so common CSV labels (`Grocery`, `Restaurants`) map to categories
   without the user applying them by hand.
-- A real pytest suite with a fixture database.
